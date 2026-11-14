@@ -81,7 +81,7 @@ mkdir_private() {
   if [ "$DRY" = 1 ]; then
     [ -d "$1" ] || step "create directory $1 (0700)"
   else
-    mkdir -p "$1" && chmod 700 "$1" || die "cannot create $1"
+    if ! { mkdir -p "$1" && chmod 700 "$1"; }; then die "cannot create $1"; fi
   fi
 }
 
