@@ -73,12 +73,40 @@ enum Kind: String {
 
     var needsYou: Bool { self != .done }
 
-    var symbols: [String] {
+    /// SF Symbol candidates, first one that exists wins. `filled` (style "mono", needs-you kinds)
+    /// prefers the filled variants.
+    func symbols(filled: Bool) -> [String] {
         switch self {
         case .done: return ["checkmark.circle"]
-        case .permission: return ["hand.raised"]
-        case .question: return ["questionmark.bubble", "questionmark.circle"]
-        case .agent: return ["person.crop.circle.badge.questionmark", "questionmark.circle"]
+        case .permission: return filled ? ["hand.raised.fill", "hand.raised"] : ["hand.raised"]
+        case .question:
+            return filled ? ["questionmark.bubble.fill", "questionmark.circle.fill", "questionmark.circle"]
+                          : ["questionmark.bubble", "questionmark.circle"]
+        case .agent:
+            return filled ? ["person.crop.circle.badge.questionmark.fill", "questionmark.circle.fill", "questionmark.circle"]
+                          : ["person.crop.circle.badge.questionmark", "questionmark.circle"]
+        }
+    }
+
+    /// Hue per kind for style "color" (a validated categorical set): done green, permission
+    /// orange, question blue, agent violet.
+    var hue: (light: UInt32, dark: UInt32) {
+        switch self {
+        case .done: return (0x1BAF7A, 0x199E70)
+        case .permission: return (0xEB6834, 0xD95926)
+        case .question: return (0x2A78D6, 0x3987E5)
+        case .agent: return (0x6250D6, 0x9085E9)
+        }
+    }
+
+    /// Darker (light mode) / lighter (dark mode) step of the hue for text and symbols: at least
+    /// 4.5:1 on the card in both themes.
+    var hueText: (light: UInt32, dark: UInt32) {
+        switch self {
+        case .done: return (0x11704E, 0x39AC84)
+        case .permission: return (0xA04723, 0xE17E56)
+        case .question: return (0x2260AB, 0x5D9DEA)
+        case .agent: return (0x5C4BC9, 0x9B91EB)
         }
     }
 
@@ -125,6 +153,8 @@ struct Input {
     var fontSize = 13.0
     var stickyNeedsYou = true
     var isPrivate = false
+    var style = Style.standard
+    var compactLines = 2
     var focus = FocusTarget()
     var transcriptSize: UInt64?
     var eventAt = 0.0
@@ -166,6 +196,8 @@ func readInput() -> Input {
     if let v = number(o["font_size"]) { d.fontSize = min(max(v, 10), 24) }
     if let v = o["sticky_needs_you"] as? Bool { d.stickyNeedsYou = v }
     if let v = o["private"] as? Bool { d.isPrivate = v }
+    if let v = o["style"] as? String, let st = Style(rawValue: v.lowercased()) { d.style = st }
+    if let v = number(o["compact_lines"]) { d.compactLines = min(max(Int(v), 1), 8) }
     if let f = o["focus"] as? [String: Any] {
         d.focus.host = (f["host"] as? String) ?? ""
         d.focus.cwd = (f["cwd"] as? String) ?? ""
@@ -224,34 +256,108 @@ let reduceTransparency = accessibility.accessibilityDisplayShouldReduceTranspare
 let increaseContrast = accessibility.accessibilityDisplayShouldIncreaseContrast
 let reduceMotion = accessibility.accessibilityDisplayShouldReduceMotion
 
-struct Palette {
-    let tint, border, attention, attentionBorder, ink, text, gray, code, codeBackground, link, stand: NSColor
+enum Style: String {
+    case standard = "default", color, mono
+}
 
-    static func make() -> Palette {
+struct Palette {
+    let tint, border, divider, cardBorder, kindTint, ink, text, gray, code, codeBackground, link, stand: NSColor
+    /// Optional hue laid over the whole card surface (style "color").
+    let overlay: NSColor?
+    let cardBorderWidth: CGFloat
+
+    static func make(style: Style, kind: Kind) -> Palette {
         let veilAlphaLight: CGFloat = reduceTransparency ? 1 : 0.58
         let veilAlphaDark: CGFloat = reduceTransparency ? 1 : 0.62
+        let extra: CGFloat = increaseContrast ? 0.5 : 0
+        let divider = dynamic(light: NSColor(hex: 0x000000, alpha: increaseContrast ? 0.28 : 0.10),
+                              dark: NSColor(hex: 0xFFFFFF, alpha: increaseContrast ? 0.35 : 0.12))
         let borderAlpha: CGFloat = increaseContrast ? 0.45 : 0.10
         let borderAlphaDark: CGFloat = increaseContrast ? 0.60 : 0.12
-        let attentionLight = NSColor(hex: 0xB8532F)
-        let attentionDark = NSColor(hex: 0xE8977A)
-        return Palette(
-            tint: dynamic(light: NSColor(hex: 0xFAF9F5, alpha: veilAlphaLight),
-                          dark: NSColor(hex: 0x262624, alpha: veilAlphaDark)),
-            border: dynamic(light: NSColor(hex: 0x000000, alpha: borderAlpha),
-                            dark: NSColor(hex: 0xFFFFFF, alpha: borderAlphaDark)),
-            attention: dynamic(light: attentionLight, dark: attentionDark),
-            attentionBorder: dynamic(light: attentionLight.withAlphaComponent(increaseContrast ? 1 : 0.65),
-                                     dark: attentionDark.withAlphaComponent(increaseContrast ? 1 : 0.65)),
-            ink: dynamic(light: NSColor(hex: 0x141413), dark: NSColor(hex: 0xF5F4EF)),
-            text: dynamic(light: increaseContrast ? NSColor(hex: 0x141413) : NSColor(hex: 0x3D3D3A),
-                          dark: increaseContrast ? NSColor(hex: 0xF5F4EF) : NSColor(hex: 0xDCDAD2)),
-            gray: dynamic(light: increaseContrast ? NSColor(hex: 0x4A4944) : NSColor(hex: 0x73726C),
-                          dark: increaseContrast ? NSColor(hex: 0xC4C2BA) : NSColor(hex: 0x9C9A92)),
-            code: dynamic(light: NSColor(hex: 0xB4532F), dark: NSColor(hex: 0xE59A80)),
-            codeBackground: dynamic(light: NSColor(hex: 0x000000, alpha: 0.05),
-                                    dark: NSColor(hex: 0xFFFFFF, alpha: 0.07)),
-            link: dynamic(light: NSColor(hex: 0x2F62B5), dark: NSColor(hex: 0x8DB4F0)),
-            stand: dynamic(light: NSColor(hex: 0xEFEDE6), dark: NSColor(hex: 0x1E1E1D)))
+
+        switch style {
+        case .mono:
+            // Grayscale only: no hue anywhere. Needs-you kinds get a stronger, darker full border.
+            let border = dynamic(light: NSColor(hex: 0x000000, alpha: borderAlpha),
+                                 dark: NSColor(hex: 0xFFFFFF, alpha: borderAlphaDark))
+            let strong = dynamic(light: NSColor(hex: 0x4A4A4A), dark: NSColor(hex: 0xBDBDBD))
+            let ink = dynamic(light: NSColor(hex: 0x111111), dark: NSColor(hex: 0xF2F2F2))
+            return Palette(
+                tint: dynamic(light: NSColor(hex: 0xF7F7F7, alpha: veilAlphaLight),
+                              dark: NSColor(hex: 0x262626, alpha: veilAlphaDark)),
+                border: border, divider: divider,
+                cardBorder: kind.needsYou ? strong : border,
+                kindTint: kind.needsYou ? ink : dynamic(light: NSColor(hex: 0x6E6E6E), dark: NSColor(hex: 0x9A9A9A)),
+                ink: ink,
+                text: dynamic(light: NSColor(hex: increaseContrast ? 0x111111 : 0x3A3A3A),
+                              dark: NSColor(hex: increaseContrast ? 0xF2F2F2 : 0xDDDDDD)),
+                gray: dynamic(light: NSColor(hex: increaseContrast ? 0x4A4A4A : 0x6E6E6E),
+                              dark: NSColor(hex: increaseContrast ? 0xC8C8C8 : 0x9A9A9A)),
+                code: ink,
+                codeBackground: dynamic(light: NSColor(hex: 0x000000, alpha: 0.08),
+                                        dark: NSColor(hex: 0xFFFFFF, alpha: 0.12)),
+                link: ink,
+                stand: dynamic(light: NSColor(hex: 0xEDEDED), dark: NSColor(hex: 0x1E1E1E)),
+                overlay: nil,
+                cardBorderWidth: (kind.needsYou ? 1.5 : 1) + extra)
+
+        case .color:
+            // One hue per kind. Label and symbol use a darker (light mode) or lighter (dark mode)
+            // step of the hue so their contrast on the card is at least 4.5:1.
+            let hueText = dynamic(light: NSColor(hex: kind.hueText.light), dark: NSColor(hex: kind.hueText.dark))
+            let borderStrength: CGFloat = kind.needsYou ? 0.95 : 0.45
+            return Palette(
+                tint: dynamic(light: NSColor(hex: 0xFAF9F5, alpha: veilAlphaLight),
+                              dark: NSColor(hex: 0x262624, alpha: veilAlphaDark)),
+                border: dynamic(light: NSColor(hex: 0x000000, alpha: borderAlpha),
+                                dark: NSColor(hex: 0xFFFFFF, alpha: borderAlphaDark)),
+                divider: dynamic(light: NSColor(hex: kind.hue.light, alpha: 0.28),
+                                 dark: NSColor(hex: kind.hue.dark, alpha: 0.32)),
+                cardBorder: dynamic(light: NSColor(hex: kind.hue.light, alpha: borderStrength),
+                                    dark: NSColor(hex: kind.hue.dark, alpha: borderStrength)),
+                kindTint: hueText,
+                ink: dynamic(light: NSColor(hex: 0x141413), dark: NSColor(hex: 0xF5F4EF)),
+                text: dynamic(light: increaseContrast ? NSColor(hex: 0x141413) : NSColor(hex: 0x3D3D3A),
+                              dark: increaseContrast ? NSColor(hex: 0xF5F4EF) : NSColor(hex: 0xDCDAD2)),
+                gray: dynamic(light: increaseContrast ? NSColor(hex: 0x4A4944) : NSColor(hex: 0x73726C),
+                              dark: increaseContrast ? NSColor(hex: 0xC4C2BA) : NSColor(hex: 0x9C9A92)),
+                code: hueText,
+                codeBackground: dynamic(light: NSColor(hex: kind.hue.light, alpha: 0.10),
+                                        dark: NSColor(hex: kind.hue.dark, alpha: 0.16)),
+                link: dynamic(light: NSColor(hex: 0x2F62B5), dark: NSColor(hex: 0x8DB4F0)),
+                stand: dynamic(light: NSColor(hex: 0xEFEDE6), dark: NSColor(hex: 0x1E1E1D)),
+                overlay: dynamic(light: NSColor(hex: kind.hue.light, alpha: 0.07),
+                                 dark: NSColor(hex: kind.hue.dark, alpha: 0.08)),
+                cardBorderWidth: (kind.needsYou ? 1.25 : 1) + extra)
+
+        case .standard:
+            let attentionLight = NSColor(hex: 0xB8532F)
+            let attentionDark = NSColor(hex: 0xE8977A)
+            let border = dynamic(light: NSColor(hex: 0x000000, alpha: borderAlpha),
+                                 dark: NSColor(hex: 0xFFFFFF, alpha: borderAlphaDark))
+            let attention = dynamic(light: attentionLight, dark: attentionDark)
+            let attentionBorder = dynamic(light: attentionLight.withAlphaComponent(increaseContrast ? 1 : 0.65),
+                                          dark: attentionDark.withAlphaComponent(increaseContrast ? 1 : 0.65))
+            let gray = dynamic(light: increaseContrast ? NSColor(hex: 0x4A4944) : NSColor(hex: 0x73726C),
+                               dark: increaseContrast ? NSColor(hex: 0xC4C2BA) : NSColor(hex: 0x9C9A92))
+            return Palette(
+                tint: dynamic(light: NSColor(hex: 0xFAF9F5, alpha: veilAlphaLight),
+                              dark: NSColor(hex: 0x262624, alpha: veilAlphaDark)),
+                border: border, divider: divider,
+                cardBorder: kind.needsYou ? attentionBorder : border,
+                kindTint: kind.needsYou ? attention : gray,
+                ink: dynamic(light: NSColor(hex: 0x141413), dark: NSColor(hex: 0xF5F4EF)),
+                text: dynamic(light: increaseContrast ? NSColor(hex: 0x141413) : NSColor(hex: 0x3D3D3A),
+                              dark: increaseContrast ? NSColor(hex: 0xF5F4EF) : NSColor(hex: 0xDCDAD2)),
+                gray: gray,
+                code: dynamic(light: NSColor(hex: 0xB4532F), dark: NSColor(hex: 0xE59A80)),
+                codeBackground: dynamic(light: NSColor(hex: 0x000000, alpha: 0.05),
+                                        dark: NSColor(hex: 0xFFFFFF, alpha: 0.07)),
+                link: dynamic(light: NSColor(hex: 0x2F62B5), dark: NSColor(hex: 0x8DB4F0)),
+                stand: dynamic(light: NSColor(hex: 0xEFEDE6), dark: NSColor(hex: 0x1E1E1D)),
+                overlay: nil,
+                cardBorderWidth: 1 + extra)
+        }
     }
 }
 
@@ -352,7 +458,7 @@ struct Formatter {
         t.collapsesBorders = true
         t.hidesEmptyCells = false
         t.setWidth(before, type: .absoluteValueType, for: .margin, edge: .minY)
-        t.setWidth(2, type: .absoluteValueType, for: .margin, edge: .maxY)
+        t.setWidth(6, type: .absoluteValueType, for: .margin, edge: .maxY)
         let small = NSFont.systemFont(ofSize: size - 1)
         let bodyRows = rows.count > 1 ? Array(rows.dropFirst()) : rows
         let right = (0..<n).map { col -> Bool in
@@ -407,7 +513,7 @@ struct Formatter {
             let raw = lines[i]
             let l = raw.trimmingCharacters(in: .whitespaces)
             i += 1
-            if l.hasPrefix("```") { inCode.toggle(); air = max(air, 8); continue }
+            if l.hasPrefix("```") { inCode.toggle(); air = max(air, 6); continue }
 
             if !inCode && l.hasPrefix("|") {
                 var rows: [[String]] = [cells(l)]
@@ -420,8 +526,8 @@ struct Formatter {
                 if out.length > 0 && !out.mutableString.hasSuffix("\n") {
                     out.append(NSAttributedString(string: "\n"))
                 }
-                out.append(table(rows, before: out.length > 0 ? max(air, 6) : 0))
-                air = 10
+                out.append(table(rows, before: out.length > 0 ? 6 : 0))
+                air = 4
                 continue
             }
 
@@ -439,21 +545,22 @@ struct Formatter {
                 para.firstLineHeadIndent = 8
                 para.headIndent = 8
             } else if l.isEmpty {
-                air = max(air, 9)
+                air = max(air, 6)
                 continue
             } else if l.firstMatch(#"^(-{3,}|\*{3,}|_{3,})$"#) != nil {
-                air = max(air, 18)
+                air = max(air, 12)
                 continue
             } else if let m = l.firstMatch(#"^(#{1,6})\s+(.*)$"#) {
                 let level = m[1].count
                 line = inline(m[2], font: with(.systemFont(ofSize: size + (level <= 2 ? 2 : 1)), .boldFontMask),
                               color: p.ink)
-                before = 14
-                para.paragraphSpacing = 3
+                before = 10
+                para.paragraphSpacing = 2
             } else if let m = raw.firstMatch(#"^(\s*)[-*+•]\s+(.*)$"#) {
                 let indent = CGFloat(min(m[1].count / 2, 3)) * 14
                 line = NSMutableAttributedString(string: "•\t", attributes: [.font: body, .foregroundColor: p.gray])
                 line.append(inline(m[2], font: body, color: p.text))
+                para.paragraphSpacing = 2
                 para.tabStops = [NSTextTab(textAlignment: .left, location: indent + 12)]
                 para.firstLineHeadIndent = indent
                 para.headIndent = indent + 12
@@ -462,6 +569,7 @@ struct Formatter {
                 line = NSMutableAttributedString(string: "\(m[2])\t", attributes: [
                     .font: body, .foregroundColor: p.gray])
                 line.append(inline(m[3], font: body, color: p.text))
+                para.paragraphSpacing = 2
                 para.tabStops = [NSTextTab(textAlignment: .left, location: indent + 18)]
                 para.firstLineHeadIndent = indent
                 para.headIndent = indent + 18
@@ -525,6 +633,11 @@ final class ChromeView: NSView {
     var strokeWidth: CGFloat = 1
     var radius: CGFloat = 14
     var stand: NSColor?
+    var overlay: NSColor?
+    /// Hairline between header and body: y position (flipped) and horizontal inset.
+    var dividerY: CGFloat?
+    var dividerInset: CGFloat = 12
+    var dividerColor = NSColor.clear
 
     override var isFlipped: Bool { true }
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
@@ -537,6 +650,11 @@ final class ChromeView: NSView {
         if let s = stand { s.setFill(); path.fill() }
         fill.setFill()
         path.fill()
+        if let o = overlay { o.setFill(); path.fill() }
+        if let y = dividerY {
+            dividerColor.setFill()
+            NSRect(x: dividerInset, y: y, width: bounds.width - 2 * dividerInset, height: 1).fill()
+        }
         stroke.setStroke()
         path.lineWidth = strokeWidth
         path.stroke()
@@ -596,6 +714,55 @@ func symbolImage(_ names: [String], description: String? = nil) -> NSImage? {
     return nil
 }
 
+// MARK: - Capture helpers (test hooks only)
+
+func makeRep(_ w: CGFloat, _ h: CGFloat, scale: CGFloat) -> NSBitmapImageRep? {
+    let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(w * scale), pixelsHigh: Int(h * scale),
+                               bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                               colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)
+    rep?.size = NSSize(width: w, height: h)
+    return rep
+}
+
+/// Draws one or more card images (top to bottom, `gap` points apart) over a soft backdrop with
+/// shadows and returns a PNG. Uses the current NSApp appearance for the backdrop colors.
+func composeOnBackdrop(_ cards: [NSBitmapImageRep], gap: CGFloat, scale: CGFloat, radius: CGFloat) -> Data? {
+    let margin: CGFloat = 40
+    let cardW = cards.map { $0.size.width }.max() ?? 0
+    let cardsH = cards.reduce(0) { $0 + $1.size.height } + gap * CGFloat(max(cards.count - 1, 0))
+    let w = cardW + 2 * margin, h = cardsH + 2 * margin
+    guard let out = makeRep(w, h, scale: scale), let ctx = NSGraphicsContext(bitmapImageRep: out) else { return nil }
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = ctx
+    NSApp.effectiveAppearance.performAsCurrentDrawingAppearance {
+        let dark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let c1 = dark ? NSColor(hex: 0x4A4743) : NSColor(hex: 0xE6DDCF)
+        let c2 = dark ? NSColor(hex: 0x2B2927) : NSColor(hex: 0xCFC4B2)
+        NSGradient(starting: c1, ending: c2)?.draw(in: NSRect(x: 0, y: 0, width: w, height: h), angle: -60)
+        var top = h - margin
+        for rep in cards {
+            let size = rep.size
+            let rect = NSRect(x: margin, y: top - size.height, width: size.width, height: size.height)
+            NSGraphicsContext.saveGraphicsState()
+            let shadow = NSShadow()
+            shadow.shadowColor = NSColor.black.withAlphaComponent(dark ? 0.55 : 0.28)
+            shadow.shadowBlurRadius = 20
+            shadow.shadowOffset = NSSize(width: 0, height: -6)
+            shadow.set()
+            NSColor.black.setFill()
+            NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
+            NSGraphicsContext.restoreGraphicsState()
+            NSGraphicsContext.saveGraphicsState()
+            NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).addClip()
+            rep.draw(in: rect)
+            NSGraphicsContext.restoreGraphicsState()
+            top -= size.height + gap
+        }
+    }
+    NSGraphicsContext.restoreGraphicsState()
+    return out.representation(using: .png, properties: [:])
+}
+
 // MARK: - The popup
 
 final class Popup: NSObject, NSApplicationDelegate {
@@ -610,13 +777,16 @@ final class Popup: NSObject, NSApplicationDelegate {
     let gap: CGFloat = 8
     let margin: CGFloat = 12
     var k: CGFloat { CGFloat(d.fontSize) / 13 }
-    var iconSide: CGFloat { round(24 * k) }
-    var xText: CGFloat { pad + iconSide + 10 }
-    var yText: CGFloat { pad + round(24 * k) }
+    var iconSide: CGFloat { round(19 * k) }
+    var headerHeight: CGFloat { max(iconSide, ceil(CGFloat(d.fontSize) * 1.3)) }
+    /// The body is full width, from the left padding.
+    var xText: CGFloat { pad }
+    var dividerY: CGFloat { pad + headerHeight + 8 }
+    var yText: CGFloat { dividerY + 1 + 9 }
 
     var screen: NSScreen!
     var screenID = 0
-    var palette = Palette.make()
+    var palette = Palette.make(style: .standard, kind: .done)
     var panel: Panel!
     var card: CardView!
     var summary: NSTextField!
@@ -649,7 +819,7 @@ final class Popup: NSObject, NSApplicationDelegate {
         case "light": NSApp.appearance = NSAppearance(named: .aqua)
         default: break
         }
-        palette = Palette.make()
+        palette = Palette.make(style: d.style, kind: d.kind)
         screen = screenUnderMouse()
         screenID = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.intValue ?? 0
         remaining = d.seconds
@@ -726,7 +896,7 @@ final class Popup: NSObject, NSApplicationDelegate {
     // MARK: Building
 
     func buildViews() {
-        let bodyWidth = W - xText - pad
+        let bodyWidth = W - 2 * pad
         let fmt = Formatter(p: palette, size: CGFloat(d.fontSize))
 
         card = CardView(frame: NSRect(x: 0, y: 0, width: W, height: 100))
@@ -746,75 +916,80 @@ final class Popup: NSObject, NSApplicationDelegate {
             blur.maskImage = roundedMask(radius)
             card.addSubview(blur)
         }
+        let visibleBody = !d.isPrivate && !d.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let chrome = ChromeView(frame: card.bounds)
         chrome.autoresizingMask = [.width, .height]
         chrome.radius = radius
         chrome.fill = palette.tint
-        chrome.stroke = d.kind.needsYou ? palette.attentionBorder : palette.border
-        chrome.strokeWidth = increaseContrast ? 1.5 : 1
+        chrome.overlay = palette.overlay
+        chrome.stroke = palette.cardBorder
+        chrome.strokeWidth = palette.cardBorderWidth
+        chrome.dividerInset = pad
+        chrome.dividerColor = palette.divider
+        if visibleBody { chrome.dividerY = dividerY }
         if captureTarget != nil || reduceTransparency { chrome.stand = palette.stand }
         card.addSubview(chrome)
 
-        // Icon
+        // Header: [icon] project · [symbol] label, one row, vertically centered
+        let hh = headerHeight
         let icon = makeIcon()
-        icon.frame = NSRect(x: pad, y: pad, width: iconSide, height: iconSide)
+        icon.frame = NSRect(x: pad, y: pad + (hh - iconSide) / 2, width: iconSide, height: iconSide)
         card.addSubview(icon)
 
-        // Header: project · [symbol] label
-        let titleFont = NSFont.systemFont(ofSize: CGFloat(d.fontSize), weight: .semibold)
+        let fs = CGFloat(d.fontSize)
+        let titleFont = NSFont.systemFont(ofSize: fs, weight: .semibold)
         let title = NSTextField(labelWithString: d.title)
         title.font = titleFont
         title.textColor = palette.ink
         title.lineBreakMode = .byTruncatingTail
-        let tint = d.kind.needsYou ? palette.attention : palette.gray
-        let labelFont = NSFont.systemFont(ofSize: CGFloat(d.fontSize) - 1, weight: .medium)
+        let tint = palette.kindTint
+        let strongLabel = d.style == .mono && d.kind.needsYou
         let label = NSTextField(labelWithString: L.label(d.kind))
-        label.font = labelFont
+        label.font = NSFont.systemFont(ofSize: fs - 1, weight: strongLabel ? .semibold : .medium)
         label.textColor = tint
         label.lineBreakMode = .byTruncatingTail
         let dot = NSTextField(labelWithString: "·")
         dot.font = titleFont
         dot.textColor = palette.gray
         let symbol = NSImageView()
-        symbol.image = symbolImage(d.kind.symbols, description: L.label(d.kind))
-        symbol.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: CGFloat(d.fontSize) - 1, weight: .semibold)
+        let filled = d.style == .mono && d.kind.needsYou
+        symbol.image = symbolImage(d.kind.symbols(filled: filled), description: L.label(d.kind))
+        symbol.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: fs - 1, weight: .semibold)
         symbol.contentTintColor = tint
-        let symSide = ceil(CGFloat(d.fontSize) + 3)
+        let symSide = ceil(fs + 3)
 
-        let headerH = ceil(CGFloat(d.fontSize) * 1.3)
-        let headerY = pad + (iconSide - headerH) / 2 - 1
-        let available = W - xText - pad - 22
-        let labelW = ceil(label.sizeThatFits(NSSize(width: 400, height: headerH)).width)
-        let dotW = ceil(dot.sizeThatFits(NSSize(width: 40, height: headerH)).width)
+        let xTitle = pad + iconSide + 8
+        let available = W - xTitle - pad - 22
+        let labelW = ceil(label.sizeThatFits(NSSize(width: 400, height: hh)).width)
+        let dotW = ceil(dot.sizeThatFits(NSSize(width: 40, height: hh)).width)
         let cueW = dotW + 4 + symSide + 3 + labelW
-        let titleNatural = ceil(title.sizeThatFits(NSSize(width: 800, height: headerH)).width)
+        let titleNatural = ceil(title.sizeThatFits(NSSize(width: 800, height: hh)).width)
         let titleW = min(titleNatural, max(available - cueW - 6, 60))
-        var x = xText
-        title.frame = NSRect(x: x, y: headerY, width: titleW, height: headerH)
+        var x = xTitle
+        title.frame = NSRect(x: x, y: pad, width: titleW, height: hh)
         x += titleW + 4
-        dot.frame = NSRect(x: x, y: headerY, width: dotW, height: headerH)
+        dot.frame = NSRect(x: x, y: pad, width: dotW, height: hh)
         x += dotW + 4
-        symbol.frame = NSRect(x: x, y: headerY + (headerH - symSide) / 2, width: symSide, height: symSide)
+        symbol.frame = NSRect(x: x, y: pad + (hh - symSide) / 2, width: symSide, height: symSide)
         x += symSide + 3
-        label.frame = NSRect(x: x, y: headerY, width: min(labelW, max(W - pad - 22 - x, 30)), height: headerH)
+        label.frame = NSRect(x: x, y: pad, width: min(labelW, max(W - pad - 22 - x, 30)), height: hh)
         [title, dot, symbol, label].forEach { card.addSubview($0) }
 
         closeButton = ClickButton(title: "", target: self, action: #selector(dismissButton))
         closeButton.isBordered = false
         closeButton.attributedTitle = NSAttributedString(string: "✕", attributes: [
             .font: NSFont.systemFont(ofSize: 11, weight: .medium), .foregroundColor: palette.gray])
-        closeButton.frame = NSRect(x: W - pad - 16, y: headerY - 1, width: 20, height: 20)
+        closeButton.frame = NSRect(x: W - pad - 16, y: pad + (hh - 20) / 2, width: 20, height: 20)
         closeButton.toolTip = L.close
         closeButton.setAccessibilityLabel(L.close)
         closeButton.isHidden = true
         card.addSubview(closeButton)
 
-        let minHeight = pad + iconSide + pad
-        let visibleBody = !d.isPrivate && !d.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let minHeight = pad + hh + pad
 
-        // Compact: running text, 3 lines at most, with "…" if it goes on
+        // Compact: running text, `compact_lines` lines at most, with "…" if it goes on
         summary = NSTextField(labelWithAttributedString: visibleBody ? fmt.running(d.text) : NSAttributedString())
-        summary.maximumNumberOfLines = 3
+        summary.maximumNumberOfLines = d.compactLines
         summary.cell?.wraps = true
         summary.cell?.truncatesLastVisibleLine = true
         summary.lineBreakMode = .byWordWrapping
@@ -838,6 +1013,7 @@ final class Popup: NSObject, NSApplicationDelegate {
         if visibleBody { fullText.textStorage?.setAttributedString(fmt.blocks(d.text)) }
         let totalH = visibleBody ? measure(fullText) : 0
         let textH = min(totalH, maxH)
+        if env["CCNOTIFY_DEBUG"] != nil { FileHandle.standardError.write("natural=\(totalH) cap=\(maxH)\n".data(using: .utf8)!) }
         fullText.frame = NSRect(x: 0, y: 0, width: bodyWidth, height: totalH)
         if totalH > maxH {
             // 8 px wider than the text: the scroll bar sits in the margin and covers no letters
@@ -1207,46 +1383,11 @@ final class Popup: NSObject, NSApplicationDelegate {
     func capture(to path: String) {
         let b = card.bounds
         let scale = CGFloat(Double(env["CCNOTIFY_CAPTURE_SCALE"] ?? "") ?? 2)
-        func makeRep(_ w: CGFloat, _ h: CGFloat) -> NSBitmapImageRep? {
-            let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(w * scale), pixelsHigh: Int(h * scale),
-                                       bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
-                                       colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)
-            rep?.size = NSSize(width: w, height: h)
-            return rep
-        }
-        guard let cardRep = makeRep(b.width, b.height) else { return }
+        guard let cardRep = makeRep(b.width, b.height, scale: scale) else { return }
         card.cacheDisplay(in: b, to: cardRep)
         var png = cardRep.representation(using: .png, properties: [:])
-
         if env["CCNOTIFY_CAPTURE_BACKDROP"] != "0" {
-            let margin: CGFloat = 40
-            let w = b.width + 2 * margin, h = b.height + 2 * margin
-            if let out = makeRep(w, h), let ctx = NSGraphicsContext(bitmapImageRep: out) {
-                NSGraphicsContext.saveGraphicsState()
-                NSGraphicsContext.current = ctx
-                (NSApp.effectiveAppearance).performAsCurrentDrawingAppearance {
-                    let dark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-                    let c1 = dark ? NSColor(hex: 0x4A4743) : NSColor(hex: 0xE6DDCF)
-                    let c2 = dark ? NSColor(hex: 0x2B2927) : NSColor(hex: 0xCFC4B2)
-                    NSGradient(starting: c1, ending: c2)?.draw(in: NSRect(x: 0, y: 0, width: w, height: h), angle: -60)
-                    let rect = NSRect(x: margin, y: margin, width: b.width, height: b.height)
-                    NSGraphicsContext.saveGraphicsState()
-                    let shadow = NSShadow()
-                    shadow.shadowColor = NSColor.black.withAlphaComponent(dark ? 0.55 : 0.28)
-                    shadow.shadowBlurRadius = 20
-                    shadow.shadowOffset = NSSize(width: 0, height: -6)
-                    shadow.set()
-                    NSColor.black.setFill()
-                    NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
-                    NSGraphicsContext.restoreGraphicsState()
-                    NSGraphicsContext.saveGraphicsState()
-                    NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).addClip()
-                    cardRep.draw(in: rect)
-                    NSGraphicsContext.restoreGraphicsState()
-                }
-                NSGraphicsContext.restoreGraphicsState()
-                png = out.representation(using: .png, properties: [:])
-            }
+            png = composeOnBackdrop([cardRep], gap: 0, scale: scale, radius: radius) ?? png
         }
         try? png?.write(to: URL(fileURLWithPath: path))
     }
@@ -1267,6 +1408,27 @@ final class IconBox: NSView {
 
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
+
+// Test hook: CCNOTIFY_COMPOSE=<out.png> CCNOTIFY_COMPOSE_INPUTS=a.png:b.png:c.png joins bare card captures
+// (top to bottom, 8 points apart) over the backdrop, like a stack of popups. Quits when done.
+if let out = env["CCNOTIFY_COMPOSE"] {
+    switch env["CCNOTIFY_THEME"] {
+    case "dark": NSApp.appearance = NSAppearance(named: .darkAqua)
+    case "light": NSApp.appearance = NSAppearance(named: .aqua)
+    default: break
+    }
+    let reps = (env["CCNOTIFY_COMPOSE_INPUTS"] ?? "").split(separator: ":").compactMap { path -> NSBitmapImageRep? in
+        guard let data = FileManager.default.contents(atPath: String(path)),
+              let rep = NSBitmapImageRep(data: data) else { return nil }
+        return rep
+    }
+    let scale = CGFloat(Double(env["CCNOTIFY_CAPTURE_SCALE"] ?? "") ?? 2)
+    if let png = composeOnBackdrop(reps, gap: 8, scale: scale, radius: 14) {
+        try? png.write(to: URL(fileURLWithPath: out))
+    }
+    exit(0)
+}
+
 let popup = Popup()
 app.delegate = popup
 // A newer popup of the same session replaces this one (SIGTERM): it leaves with the animation.

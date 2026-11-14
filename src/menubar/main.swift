@@ -49,6 +49,15 @@ func safeName(_ s: String) -> String {
 
 // MARK: - Localization
 
+/// popup.style from config.json: "default", "color" or "mono". Mono means grayscale only.
+func configStyle() -> String {
+    if let data = FileManager.default.contents(atPath: ccHome + "/config.json"),
+       let o = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+       let popup = o["popup"] as? [String: Any],
+       let style = popup["style"] as? String { return style.lowercased() }
+    return "default"
+}
+
 struct Strings {
     let es: Bool
 
@@ -205,6 +214,7 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var readUpTo: [String: UInt64] = [:]       // per session: how far its transcript has been read
     var overrides: [String: Override] = [:]
     var timer: Timer?
+    var mono = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let menu = NSMenu()
@@ -347,16 +357,28 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func paintItem() {
         L = Strings()
         let nNeeds = needing.count, nWrote = unseenWrote.count, nThinking = thinking.count
+        mono = configStyle() == "mono"
         let tint: NSColor?
-        let symbol: String
-        if nNeeds > 0 { tint = attentionColor; symbol = "bubble.left.and.bubble.right.fill" }
-        else if nWrote > 0 { tint = accentColor; symbol = "bubble.left.and.bubble.right.fill" }
-        else if nThinking > 0 { tint = .secondaryLabelColor; symbol = "bubble.left.and.bubble.right" }
-        else { tint = nil; symbol = "bubble.left.and.bubble.right" }
+        let symbols: [String]
+        let base = "bubble.left.and.bubble.right"
+        if mono {
+            // Grayscale: the state is told by different symbols, not by color
+            tint = nil
+            if nNeeds > 0 { symbols = ["exclamationmark.bubble.fill", base + ".fill"] }
+            else if nWrote > 0 { symbols = [base + ".fill"] }
+            else if nThinking > 0 { symbols = ["ellipsis.bubble", base] }
+            else { symbols = [base] }
+        } else if nNeeds > 0 { tint = attentionColor; symbols = [base + ".fill"] }
+        else if nWrote > 0 { tint = accentColor; symbols = [base + ".fill"] }
+        else if nThinking > 0 { tint = .secondaryLabelColor; symbols = [base] }
+        else { tint = nil; symbols = [base] }
 
         let button = item.button
-        let img = NSImage(systemSymbolName: symbol, accessibilityDescription: L.title)
-            ?? NSImage(systemSymbolName: "bubble.left.and.bubble.right", accessibilityDescription: L.title)
+        var img: NSImage?
+        for name in symbols + [base] {
+            img = NSImage(systemSymbolName: name, accessibilityDescription: L.title)
+            if img != nil { break }
+        }
         img?.isTemplate = true
         button?.image = img
         button?.contentTintColor = tint
@@ -380,6 +402,7 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         L = Strings()
+        mono = configStyle() == "mono"
         sessions = readSessions()
         menu.removeAllItems()
         let groups: [(String, [Session])] = [
@@ -421,6 +444,13 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func row(for s: Session) -> NSMenuItem {
         let (dot, color): (String, NSColor) = {
+            if mono {
+                switch s.state {
+                case "needs": return ("◆", .labelColor)
+                case "thinking": return ("◌", .secondaryLabelColor)
+                default: return s.seen ? ("○", .tertiaryLabelColor) : ("●", .secondaryLabelColor)
+                }
+            }
             switch s.state {
             case "needs": return ("●", attentionColor)
             case "thinking": return ("◌", .secondaryLabelColor)

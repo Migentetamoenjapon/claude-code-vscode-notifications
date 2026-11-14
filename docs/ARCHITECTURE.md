@@ -175,6 +175,14 @@ These refine everything above. When in doubt, this section wins.
   at most one sound every 3 s across all popups (update the file when playing). `sound` may be a name (NSSound(named:)
   also finds files in `~/Library/Sounds`) or an absolute path; `""` = silent.
 
+### Styles (added after visual review)
+- `popup.style`: `"default"` (neutral card; needs-you kinds in the attention tint), `"color"` (one hue per kind —
+  done green, permission orange, question blue, agent violet — with a subtle full-surface tint and a thin full border),
+  `"mono"` (grayscale only; needs-you kinds use a filled symbol, semibold label and a stronger full border).
+- `popup.compact_lines` (default 2): lines shown by older popups in the stack.
+- Layout: header row (small icon · project · kind) separated from the body by a hairline rule; the body uses the
+  full card width.
+
 ### Hooks (`notify.py`)
 - **Claude PID detection:** walk parents; match `comm == "claude"` OR (`comm` is `node`/`bun` and the full args contain
   `claude`). Compute once per hook run.

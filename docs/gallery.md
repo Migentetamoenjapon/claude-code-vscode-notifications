@@ -1,0 +1,77 @@
+# Gallery
+
+All images are rendered by `tests/render/render_samples.sh` from the real app with fictional projects.
+Light theme on the left, dark on the right. The live popup is translucent (it blurs what's behind it).
+
+### Stack (newest open on top, older ones compact)
+
+<img src="img/popup-stack-light.png" width="420" alt="Stack (newest open on top, older ones compact), light"> <img src="img/popup-stack-dark.png" width="420" alt="Stack (newest open on top, older ones compact), dark">
+
+### Done — short message
+
+<img src="img/popup-done-light.png" width="420" alt="Done — short message, light"> <img src="img/popup-done-dark.png" width="420" alt="Done — short message, dark">
+
+### Done — headings, table, list
+
+<img src="img/popup-table-light.png" width="420" alt="Done — headings, table, list, light"> <img src="img/popup-table-dark.png" width="420" alt="Done — headings, table, list, dark">
+
+### Needs permission
+
+<img src="img/popup-permission-light.png" width="420" alt="Needs permission, light"> <img src="img/popup-permission-dark.png" width="420" alt="Needs permission, dark">
+
+### Question
+
+<img src="img/popup-question-light.png" width="420" alt="Question, light"> <img src="img/popup-question-dark.png" width="420" alt="Question, dark">
+
+### A background agent asks
+
+<img src="img/popup-agent-light.png" width="420" alt="A background agent asks, light"> <img src="img/popup-agent-dark.png" width="420" alt="A background agent asks, dark">
+
+### Long message (scrolls)
+
+<img src="img/popup-long-light.png" width="420" alt="Long message (scrolls), light"> <img src="img/popup-long-dark.png" width="420" alt="Long message (scrolls), dark">
+
+### Compact (older popup in the stack)
+
+<img src="img/popup-compact-light.png" width="420" alt="Compact (older popup in the stack), light"> <img src="img/popup-compact-dark.png" width="420" alt="Compact (older popup in the stack), dark">
+
+### Spanish UI — done with a table
+
+<img src="img/popup-table-es-light.png" width="420" alt="Spanish UI — done with a table, light"> <img src="img/popup-table-es-dark.png" width="420" alt="Spanish UI — done with a table, dark">
+
+### Spanish UI — needs permission
+
+<img src="img/popup-permission-es-light.png" width="420" alt="Spanish UI — needs permission, light"> <img src="img/popup-permission-es-dark.png" width="420" alt="Spanish UI — needs permission, dark">
+
+## Styles
+
+`"popup": { "style": "default" | "color" | "mono" }`
+
+### Done
+
+| default | color | mono |
+|---|---|---|
+| <img src="img/popup-style-default-done-light.png" width="280" alt="default style, Done, light"> | <img src="img/popup-style-color-done-light.png" width="280" alt="color style, Done, light"> | <img src="img/popup-style-mono-done-light.png" width="280" alt="mono style, Done, light"> |
+| <img src="img/popup-style-default-done-dark.png" width="280" alt="default style, Done, dark"> | <img src="img/popup-style-color-done-dark.png" width="280" alt="color style, Done, dark"> | <img src="img/popup-style-mono-done-dark.png" width="280" alt="mono style, Done, dark"> |
+
+### Needs permission
+
+| default | color | mono |
+|---|---|---|
+| <img src="img/popup-style-default-permission-light.png" width="280" alt="default style, Needs permission, light"> | <img src="img/popup-style-color-permission-light.png" width="280" alt="color style, Needs permission, light"> | <img src="img/popup-style-mono-permission-light.png" width="280" alt="mono style, Needs permission, light"> |
+| <img src="img/popup-style-default-permission-dark.png" width="280" alt="default style, Needs permission, dark"> | <img src="img/popup-style-color-permission-dark.png" width="280" alt="color style, Needs permission, dark"> | <img src="img/popup-style-mono-permission-dark.png" width="280" alt="mono style, Needs permission, dark"> |
+
+### Question
+
+| default | color | mono |
+|---|---|---|
+| <img src="img/popup-style-default-question-light.png" width="280" alt="default style, Question, light"> | <img src="img/popup-style-color-question-light.png" width="280" alt="color style, Question, light"> | <img src="img/popup-style-mono-question-light.png" width="280" alt="mono style, Question, light"> |
+| <img src="img/popup-style-default-question-dark.png" width="280" alt="default style, Question, dark"> | <img src="img/popup-style-color-question-dark.png" width="280" alt="color style, Question, dark"> | <img src="img/popup-style-mono-question-dark.png" width="280" alt="mono style, Question, dark"> |
+
+### Agent asks
+
+| default | color | mono |
+|---|---|---|
+| <img src="img/popup-style-default-agent-light.png" width="280" alt="default style, Agent asks, light"> | <img src="img/popup-style-color-agent-light.png" width="280" alt="color style, Agent asks, light"> | <img src="img/popup-style-mono-agent-light.png" width="280" alt="mono style, Agent asks, light"> |
+| <img src="img/popup-style-default-agent-dark.png" width="280" alt="default style, Agent asks, dark"> | <img src="img/popup-style-color-agent-dark.png" width="280" alt="color style, Agent asks, dark"> | <img src="img/popup-style-mono-agent-dark.png" width="280" alt="mono style, Agent asks, dark"> |
+

@@ -14,13 +14,34 @@ y sin telemetría.
 > Proyecto de la comunidad, no oficial. No está afiliado a Anthropic ni cuenta con su aval. "Claude" es una marca de Anthropic.
 
 <p align="center">
-  <img src="docs/img/popup-table-light.png" width="420" alt="Aviso: Claude terminó, con un título, una tabla y una lista">
-  <img src="docs/img/popup-permission-dark.png" width="420" alt="Aviso: Claude pide permiso para correr un comando de Bash (modo oscuro)">
+  <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-stack-dark.png"><img src="docs/img/popup-stack-light.png" width="520" alt="Varios avisos apilados: arriba Claude pide permiso, abajo dos sesiones que terminaron"></picture>
 </p>
-<p align="center">
-  <img src="docs/img/popup-question-light.png" width="420" alt="Aviso: Claude pregunta qué base de datos usar">
-  <img src="docs/img/popup-table-es-dark.png" width="420" alt="Aviso en español, modo oscuro, con una tabla">
-</p>
+
+## Capturas
+
+Cada tipo de mensaje tiene su ícono y su etiqueta. Los que te necesitan llevan color y un borde fino completo, y se
+quedan hasta que respondes. (Las imágenes siguen el tema claro u oscuro de tu GitHub.)
+
+| Terminó (con una tabla) | Pide permiso |
+|---|---|
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-table-es-dark.png"><img src="docs/img/popup-table-es-light.png" width="400" alt="Aviso en español: terminó, con un título y una tabla"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-permission-es-dark.png"><img src="docs/img/popup-permission-es-light.png" width="400" alt="Aviso en español: pide permiso para correr un comando de Bash"></picture> |
+| **Pregunta** | **Un agente en segundo plano pregunta** |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-default-question-dark.png"><img src="docs/img/popup-style-default-question-light.png" width="400" alt="Aviso donde Claude pregunta qué base de datos usar"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-default-agent-dark.png"><img src="docs/img/popup-style-default-agent-light.png" width="400" alt="Aviso donde un agente revisor pide una decisión"></picture> |
+
+### Tres estilos
+
+Elige uno con `"popup": { "style": "default" }` en la configuración.
+
+| `default` | `color` | `mono` |
+|---|---|---|
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-default-permission-dark.png"><img src="docs/img/popup-style-default-permission-light.png" width="280" alt="Estilo default, permiso"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-color-permission-dark.png"><img src="docs/img/popup-style-color-permission-light.png" width="280" alt="Estilo color, permiso: tinte naranja"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-mono-permission-dark.png"><img src="docs/img/popup-style-mono-permission-light.png" width="280" alt="Estilo mono, permiso: escala de grises"></picture> |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-default-done-dark.png"><img src="docs/img/popup-style-default-done-light.png" width="280" alt="Estilo default, terminó"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-color-done-dark.png"><img src="docs/img/popup-style-color-done-light.png" width="280" alt="Estilo color, terminó: tinte verde"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-mono-done-dark.png"><img src="docs/img/popup-style-mono-done-light.png" width="280" alt="Estilo mono, terminó: escala de grises"></picture> |
+
+- **default**: tarjeta neutra y tranquila; solo los mensajes que te necesitan llevan el color de atención.
+- **color**: un color por tipo: verde terminó, naranja permiso, azul pregunta, violeta agente.
+- **mono**: solo grises; lo urgente se nota por el ícono relleno, la etiqueta en negrita y un borde más marcado.
+
+Más: los mensajes largos tienen scroll y los avisos anteriores se achican a dos líneas. Mira la **[galería completa](docs/gallery.md)**.
 
 ## Qué incluye
 
@@ -68,7 +89,8 @@ Edita `~/.claude/ccnotify/config.json`. Todas las claves son opcionales; mira [`
 {
   "language": "es",
   "popup": { "seconds": 60, "width": 460, "max_height_ratio": 0.6, "font_size": 13,
-             "sticky_needs_you": true, "private": false },
+             "sticky_needs_you": true, "private": false,
+             "style": "default", "compact_lines": 2 },
   "sounds": {
     "done":       { "sound": "Glass",     "volume": 0.5, "only_when_away": true, "min_turn_seconds": 15 },
     "permission": { "sound": "Submarine", "volume": 0.8 },
@@ -80,6 +102,7 @@ Edita `~/.claude/ccnotify/config.json`. Todas las claves son opcionales; mira [`
 }
 ```
 
+- **`style`**: `default`, `color` o `mono` (mira las capturas de arriba). **`compact_lines`**: cuántas líneas conservan los avisos anteriores de la pila (2 por defecto).
 - **`language`**: `auto` (sigue el idioma de macOS), `en` o `es`.
 - **Sonidos**: cualquier nombre de `/System/Library/Sounds` (Basso, Blow, Bottle, Frog, Funk, Glass, Hero, Morse, Ping,
   Pop, Purr, Sosumi, Submarine, Tink), un archivo que pongas en `~/Library/Sounds`, la ruta completa a un archivo de

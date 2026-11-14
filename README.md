@@ -14,13 +14,34 @@ no telemetry.
 > Unofficial community project. Not affiliated with or endorsed by Anthropic. "Claude" is a trademark of Anthropic.
 
 <p align="center">
-  <img src="docs/img/popup-table-light.png" width="420" alt="Popup: Claude finished, with a heading, a table and a list">
-  <img src="docs/img/popup-permission-dark.png" width="420" alt="Popup: Claude needs permission to run a Bash command (dark mode)">
+  <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-stack-dark.png"><img src="docs/img/popup-stack-light.png" width="520" alt="A stack of popups: Claude needs permission on top, two finished sessions below"></picture>
 </p>
-<p align="center">
-  <img src="docs/img/popup-question-light.png" width="420" alt="Popup: Claude asks which database to use">
-  <img src="docs/img/popup-table-es-dark.png" width="420" alt="Popup in Spanish, dark mode, with a table">
-</p>
+
+## Screenshots
+
+Every kind of message has its own icon and label. The ones that need you are tinted and keep a thin full border;
+they stay until you answer. (Images follow your GitHub light/dark theme.)
+
+| Done (with a table) | Needs permission |
+|---|---|
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-default-done-dark.png"><img src="docs/img/popup-style-default-done-light.png" width="400" alt="Done popup with a heading, a table and a list"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-default-permission-dark.png"><img src="docs/img/popup-style-default-permission-light.png" width="400" alt="Popup asking permission to run a Bash command"></picture> |
+| **Question** | **A background agent asks** |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-default-question-dark.png"><img src="docs/img/popup-style-default-question-light.png" width="400" alt="Popup where Claude asks which database to use"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-default-agent-dark.png"><img src="docs/img/popup-style-default-agent-light.png" width="400" alt="Popup where a reviewer agent asks for a decision"></picture> |
+
+### Three styles
+
+Pick one with `"popup": { "style": "default" }` in the config.
+
+| `default` | `color` | `mono` |
+|---|---|---|
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-default-permission-dark.png"><img src="docs/img/popup-style-default-permission-light.png" width="280" alt="Default style, permission"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-color-permission-dark.png"><img src="docs/img/popup-style-color-permission-light.png" width="280" alt="Color style, permission: orange tint"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-mono-permission-dark.png"><img src="docs/img/popup-style-mono-permission-light.png" width="280" alt="Mono style, permission: grayscale"></picture> |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-default-done-dark.png"><img src="docs/img/popup-style-default-done-light.png" width="280" alt="Default style, done"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-color-done-dark.png"><img src="docs/img/popup-style-color-done-light.png" width="280" alt="Color style, done: green tint"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-mono-done-dark.png"><img src="docs/img/popup-style-mono-done-light.png" width="280" alt="Mono style, done: grayscale"></picture> |
+
+- **default**: calm neutral card; only the messages that need you get the attention color.
+- **color**: one hue per kind — green done, orange permission, blue question, violet agent.
+- **mono**: grayscale only; urgency shows through a filled icon, bold label and a stronger border.
+
+More: long messages scroll, older popups shrink to two lines, Spanish UI — see the **[full gallery](docs/gallery.md)**.
 
 ## What you get
 
@@ -67,7 +88,8 @@ Edit `~/.claude/ccnotify/config.json` (every key is optional; see [`config.examp
 {
   "language": "auto",
   "popup": { "seconds": 60, "width": 460, "max_height_ratio": 0.6, "font_size": 13,
-             "sticky_needs_you": true, "private": false },
+             "sticky_needs_you": true, "private": false,
+             "style": "default", "compact_lines": 2 },
   "sounds": {
     "done":       { "sound": "Glass",     "volume": 0.5, "only_when_away": true, "min_turn_seconds": 15 },
     "permission": { "sound": "Submarine", "volume": 0.8 },
@@ -79,6 +101,7 @@ Edit `~/.claude/ccnotify/config.json` (every key is optional; see [`config.examp
 }
 ```
 
+- **`style`**: `default`, `color` or `mono` (see the screenshots above). **`compact_lines`**: how many lines older popups in the stack keep (default 2).
 - **`language`**: `auto` (follows macOS), `en` or `es`.
 - **Sounds**: any name from `/System/Library/Sounds` (Basso, Blow, Bottle, Frog, Funk, Glass, Hero, Morse, Ping, Pop,
   Purr, Sosumi, Submarine, Tink), a file you put in `~/Library/Sounds`, an absolute path to an audio file, or `""` for silence.

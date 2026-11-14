@@ -17,14 +17,39 @@ BIN="$WORK/build/CCNotify.app/Contents/MacOS/ccnotify-popup"
 export CCNOTIFY_HOME="$WORK/home"     # keeps the render away from any real install
 mkdir -p "$CCNOTIFY_HOME"
 
-# render <name> <theme> [compact]  -- reads the sample JSON from $WORK/<name>.json
+# render_card <sample> <out-file> <theme> <compact 0|1> <style> <backdrop 0|1>
+# Reads $WORK/<sample>.json, forces "style" into it and captures one popup.
+render_card() {
+  local sample="$1" out="$2" theme="$3" compact="$4" style="$5" backdrop="$6"
+  local json="$WORK/run-$$-$RANDOM.json"
+  sed "s/^{/{\"style\": \"$style\", /" "$WORK/$sample.json" > "$json"
+  CCNOTIFY_CAPTURE="$out" CCNOTIFY_THEME="$theme" CCNOTIFY_COMPACT="$compact" \
+    CCNOTIFY_CAPTURE_BACKDROP="$backdrop" "$BIN" "$json"
+}
+
+# render <name> <theme> [compact]: default-style sample -> popup-<name>-<theme>.png
 render() {
   local name="$1" theme="$2" compact="${3:-0}"
-  local json="$WORK/$name-$theme.json"
-  cp "$WORK/$name.json" "$json"
-  CCNOTIFY_CAPTURE="$OUT/popup-$name-$theme.png" CCNOTIFY_THEME="$theme" CCNOTIFY_COMPACT="$compact" \
-    "$BIN" "$json"
+  render_card "$name" "$OUT/popup-$name-$theme.png" "$theme" "$compact" default 1
   echo "rendered: popup-$name-$theme.png"
+}
+
+# render_style <style> <kind> <sample> <theme> -> popup-style-<style>-<kind>-<theme>.png
+render_style() {
+  local style="$1" kind="$2" sample="$3" theme="$4"
+  render_card "$sample" "$OUT/popup-style-$style-$kind-$theme.png" "$theme" 0 "$style" 1
+  echo "rendered: popup-style-$style-$kind-$theme.png"
+}
+
+# render_stack <theme>: one open needs-you popup on top and two compact older ones below, 8 pt apart
+render_stack() {
+  local theme="$1"
+  render_card permission "$WORK/stack-1.png" "$theme" 0 default 0
+  render_card compact "$WORK/stack-2.png" "$theme" 1 default 0
+  render_card compact2 "$WORK/stack-3.png" "$theme" 1 default 0
+  CCNOTIFY_COMPOSE="$OUT/popup-stack-$theme.png" CCNOTIFY_THEME="$theme" \
+    CCNOTIFY_COMPOSE_INPUTS="$WORK/stack-1.png:$WORK/stack-2.png:$WORK/stack-3.png" "$BIN"
+  echo "rendered: popup-stack-$theme.png"
 }
 
 # --- Samples ------------------------------------------------------------------------------------
@@ -70,6 +95,11 @@ cat > "$WORK/compact.json" <<'JSON'
  "text": "Refactored the settings screen into three components. I also moved the validation helpers into `utils/validate.ts`, added tests for the empty-form case, and updated the README with the new folder layout. Nothing else was touched."}
 JSON
 
+cat > "$WORK/compact2.json" <<'JSON'
+{"title": "website", "kind": "done", "language": "en",
+ "text": "Updated the footer links and fixed the broken anchor on the pricing page. The build passes locally and the preview deploy is ready for review whenever you want to look at it."}
+JSON
+
 cat > "$WORK/table-es.json" <<'JSON'
 {"title": "payments-api", "kind": "done", "language": "es",
  "text": "## Resultados de la prueba\n\nComparé la ruta nueva `batch_charge()` con la anterior en 10.000 pedidos de ejemplo.\n\n| Ruta | Solicitudes | Latencia p95 | Errores |\n|---|---|---|---|\n| `charge()` anterior | 10.000 | 412 ms | 0,8 % |\n| `batch_charge()` nueva | 10.000 | 96 ms | 0,0 % |\n\n### Qué cambió\n\n- Los pedidos se agrupan por comercio antes de la llamada\n- Los reintentos usan **espera exponencial** (máximo 3)\n- Los errores ahora incluyen el id del pedido\n\nSiguiente paso: activarla detrás del flag `BATCH_CHARGE` y luego quitar la ruta anterior."}
@@ -85,6 +115,13 @@ for theme in light dark; do
     render "$name" "$theme"
   done
   render compact "$theme" 1
+  for style in default color mono; do
+    render_style "$style" done table "$theme"
+    render_style "$style" permission permission "$theme"
+    render_style "$style" question question "$theme"
+    render_style "$style" agent agent "$theme"
+  done
+  render_stack "$theme"
 done
 
 echo "Done. Images in: $OUT"

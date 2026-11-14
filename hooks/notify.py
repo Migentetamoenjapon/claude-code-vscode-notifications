@@ -50,6 +50,8 @@ DEFAULT_CONFIG = {
         "sticky_needs_you": True,
         "font_size": 13,
         "private": False,
+        "style": "default",       # "default" | "color" | "mono"
+        "compact_lines": 2,       # lines shown by older popups in the stack
     },
     "sounds": {
         "done": {"sound": "Glass", "volume": 0.5, "only_when_away": True, "min_turn_seconds": 15},
@@ -644,6 +646,8 @@ class Hook(object):
             "max_height_ratio": popup_cfg["max_height_ratio"], "max_stacked": popup_cfg["max_stacked"],
             "sticky_needs_you": popup_cfg["sticky_needs_you"], "font_size": popup_cfg["font_size"],
             "private": private,
+            "style": popup_cfg["style"] if popup_cfg["style"] in ("default", "color", "mono") else "default",
+            "compact_lines": popup_cfg["compact_lines"],
         }
         subtitle = tr(self.lang, "label_" + kind)
         short = subtitle if private else (one_line(text.replace("```", " ")) or subtitle)
