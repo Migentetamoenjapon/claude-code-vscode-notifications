@@ -1,96 +1,163 @@
 # Avisos de Claude Code para VS Code en macOS
 
-**[English](README.md)**
+[English](README.md) · **Español**
 
-Avisos en pantalla, un monitor de sesiones en la barra de menú, sonidos por tipo de mensaje y una línea de estado
-minimalista para **[Claude Code](https://docs.claude.com/en/docs/claude-code) en la terminal de VS Code, en macOS**.
-Cuando Claude termina o necesita tu permiso, aparece una tarjeta con su último mensaje, con Markdown de verdad:
-tablas, código y listas. Si la tocas, llegas a **la terminal exacta de VS Code** donde corre esa sesión.
+Entérate de cuándo **[Claude Code](https://docs.claude.com/en/docs/claude-code)** termina o te necesita, sin estar
+mirando la terminal. Un aviso pequeño muestra el último mensaje de Claude; al tocarlo llegas a **la terminal exacta de
+VS Code** de esa sesión, y un ícono en la barra de menú sigue todas tus sesiones. Todo local, hecho con los
+[hooks](https://docs.claude.com/en/docs/claude-code/hooks) de Claude Code.
 
-Está hecho solo con los [hooks](https://docs.claude.com/en/docs/claude-code/hooks) de Claude Code y un script de
-[línea de estado](https://docs.claude.com/en/docs/claude-code/statusline). Todo es local: sin cuentas, sin servidor
-y sin telemetría.
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-stack-dark.png"><img src="docs/img/popup-stack-light.png" width="520" alt="Varios avisos apilados: arriba Claude pide permiso, abajo dos sesiones que terminaron"></picture></p>
 
 > Proyecto de la comunidad, no oficial. No está afiliado a Anthropic ni cuenta con su aval. "Claude" es una marca de Anthropic.
 
-<p align="center">
-  <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-stack-dark.png"><img src="docs/img/popup-stack-light.png" width="520" alt="Varios avisos apilados: arriba Claude pide permiso, abajo dos sesiones que terminaron"></picture>
-</p>
+## Contenido
 
-## Capturas
+1. [Qué trae](#qué-trae)
+2. [Avisos](#1-avisos)
+3. [Estilos](#2-estilos)
+4. [Mensajes largos y varios a la vez](#3-mensajes-largos-y-varios-a-la-vez)
+5. [Ir a la terminal exacta](#4-ir-a-la-terminal-exacta)
+6. [Barra de menú](#5-barra-de-menú)
+7. [Sonidos](#6-sonidos)
+8. [Línea de estado (opcional)](#7-línea-de-estado-opcional)
+9. [Instalar](#instalar) · [Configurar](#configurar) · [Desinstalar](#desinstalar)
+10. [Privacidad](#privacidad-y-permisos) · [Si algo falla](#si-algo-falla) · [Cómo funciona](#cómo-funciona)
 
-Cada tipo de mensaje tiene su ícono y su etiqueta. Los que te necesitan llevan color y un borde fino completo, y se
-quedan hasta que respondes. (Las imágenes siguen el tema claro u oscuro de tu GitHub.)
+## Qué trae
 
-| Terminó (con una tabla) | Pide permiso |
+| | Función | En una línea |
+|---|---|---|
+| 1 | **Avisos** | El último mensaje de Claude, con formato, cuando termina, pide permiso, pregunta algo o un agente te necesita. |
+| 2 | **Estilos** | `default`, `color` (un color por tipo) o `mono` (grises). |
+| 3 | **Mensajes largos y pila** | Los largos tienen scroll; los anteriores se achican a dos líneas. |
+| 4 | **Ir a la terminal** | Un clic → la ventana correcta de VS Code y la terminal exacta. |
+| 5 | **Barra de menú** | Todas las sesiones de un vistazo: te necesita · te escribió · pensando. |
+| 6 | **Sonidos** | Un sonido distinto por tipo de mensaje, con horas de silencio. |
+| 7 | **Línea de estado** | Opcional, una línea: modelo, contexto, costo de la sesión y límites. |
+| | **Instalar / desinstalar** | Un script para cada cosa; respeta tus hooks y respalda tu configuración. |
+| | **Idiomas** | Inglés y español. |
+
+---
+
+## 1. Avisos
+
+Una tarjeta translúcida arriba a la derecha. Cada tipo de mensaje tiene su ícono y su etiqueta. Los que **te
+necesitan** (permiso, pregunta, agente) llevan color y un borde fino completo, y **se quedan hasta que respondes**.
+Los de "terminó" se van a los 60 s (la cuenta se pausa si tienes el mouse encima o no estás frente a la compu).
+
+| Terminó | Pide permiso |
 |---|---|
 | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-table-es-dark.png"><img src="docs/img/popup-table-es-light.png" width="400" alt="Aviso en español: terminó, con un título y una tabla"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-permission-es-dark.png"><img src="docs/img/popup-permission-es-light.png" width="400" alt="Aviso en español: pide permiso para correr un comando de Bash"></picture> |
 | **Pregunta** | **Un agente en segundo plano pregunta** |
 | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-default-question-dark.png"><img src="docs/img/popup-style-default-question-light.png" width="400" alt="Aviso donde Claude pregunta qué base de datos usar"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-default-agent-dark.png"><img src="docs/img/popup-style-default-agent-light.png" width="400" alt="Aviso donde un agente revisor pide una decisión"></picture> |
 
-### Tres estilos
+Muestra títulos, **negritas**, *cursivas*, `código`, bloques de código, listas, citas y tablas de verdad con columnas
+alineadas. Las imágenes siguen el tema claro u oscuro de tu GitHub; el aviso sigue el de macOS.
 
-Elige uno con `"popup": { "style": "default" }` en la configuración.
+## 2. Estilos
+
+Se elige con `"popup": { "style": "default" }` en la [configuración](#configurar).
 
 | `default` | `color` | `mono` |
 |---|---|---|
-| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-default-permission-dark.png"><img src="docs/img/popup-style-default-permission-light.png" width="280" alt="Estilo default, permiso"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-color-permission-dark.png"><img src="docs/img/popup-style-color-permission-light.png" width="280" alt="Estilo color, permiso: tinte naranja"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-mono-permission-dark.png"><img src="docs/img/popup-style-mono-permission-light.png" width="280" alt="Estilo mono, permiso: escala de grises"></picture> |
-| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-default-done-dark.png"><img src="docs/img/popup-style-default-done-light.png" width="280" alt="Estilo default, terminó"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-color-done-dark.png"><img src="docs/img/popup-style-color-done-light.png" width="280" alt="Estilo color, terminó: tinte verde"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-mono-done-dark.png"><img src="docs/img/popup-style-mono-done-light.png" width="280" alt="Estilo mono, terminó: escala de grises"></picture> |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-default-permission-dark.png"><img src="docs/img/popup-style-default-permission-light.png" width="280" alt="Estilo default, pide permiso"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-color-permission-dark.png"><img src="docs/img/popup-style-color-permission-light.png" width="280" alt="Estilo color, pide permiso: tinte naranja"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-mono-permission-dark.png"><img src="docs/img/popup-style-mono-permission-light.png" width="280" alt="Estilo mono, pide permiso: grises"></picture> |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-default-done-dark.png"><img src="docs/img/popup-style-default-done-light.png" width="280" alt="Estilo default, terminó"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-color-done-dark.png"><img src="docs/img/popup-style-color-done-light.png" width="280" alt="Estilo color, terminó: tinte verde"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-mono-done-dark.png"><img src="docs/img/popup-style-mono-done-light.png" width="280" alt="Estilo mono, terminó: grises"></picture> |
+| Tarjeta neutra; solo lo que te necesita lleva el color de atención. | Un color por tipo: verde terminó, naranja permiso, azul pregunta, violeta agente. | Solo grises; lo urgente se nota por el ícono relleno, la negrita y un borde más marcado. |
 
-- **default**: tarjeta neutra y tranquila; solo los mensajes que te necesitan llevan el color de atención.
-- **color**: un color por tipo: verde terminó, naranja permiso, azul pregunta, violeta agente.
-- **mono**: solo grises; lo urgente se nota por el ícono relleno, la etiqueta en negrita y un borde más marcado.
+## 3. Mensajes largos y varios a la vez
 
-Más: los mensajes largos tienen scroll y los avisos anteriores se achican a dos líneas. Mira la **[galería completa](docs/gallery.md)**.
-
-## Qué incluye
-
-| Pieza | Qué hace |
+| Mensaje largo → scroll | Avisos anteriores → 2 líneas |
 |---|---|
-| **Aviso** | Una tarjeta translúcida arriba a la derecha cuando Claude **termina**, **pide permiso**, **hace una pregunta** o un **agente en segundo plano** te necesita. Muestra el mensaje con formato (títulos, negritas, `código`, listas, tablas de verdad) y tiene scroll si es largo. Cada tipo tiene su ícono y su etiqueta. Los que te necesitan se quedan hasta que respondes; los de "terminó" se van a los 60 s (la cuenta se pausa si tienes el mouse encima o no estás frente a la compu). |
-| **Ir a la terminal** | Al tocar un aviso, o una sesión en la barra de menú, la ventana correcta de VS Code pasa al frente y se muestra **la terminal exacta** de esa sesión. Funciona con VS Code, Insiders, Cursor, Windsurf y VSCodium. |
-| **Barra de menú** | Un ícono que te dice de un vistazo si alguna sesión te necesita, te escribió (sin leer) o está pensando. El menú lista cada sesión con su proyecto y su estado. |
-| **Sonidos por tipo** | Un sonido distinto para terminó, permiso, pregunta y agente. El de "terminó" solo suena si la tarea tardó y no estás mirando VS Code. Con horas de silencio, sonidos propios y como máximo un sonido cada 3 s. |
-| **Línea de estado** (opcional) | Una sola línea gris: proyecto · modelo · % de contexto · costo de la sesión · límites de 5 horas y de la semana. El color aparece solo arriba del 40 %. |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-long-dark.png"><img src="docs/img/popup-long-light.png" width="400" alt="Aviso largo con títulos, listas y barra de scroll"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-compact-dark.png"><img src="docs/img/popup-compact-light.png" width="400" alt="Aviso compacto que muestra solo dos líneas del mensaje"></picture> |
 
-## Requisitos
+- Si pasa del 60 % del alto de la pantalla, el texto tiene scroll (`max_height_ratio`).
+- El aviso más nuevo va arriba y abierto. Los anteriores se achican a `compact_lines` (2) y se abren al pasar el mouse.
+- Un aviso nuevo de la misma sesión reemplaza al anterior.
 
-- macOS 12 Monterey o más nuevo (Intel o Apple Silicon)
-- Herramientas de línea de comandos de Xcode (`xcode-select --install`), que traen `swiftc`, `python3` y `git`
-- Claude Code, usado desde la **terminal integrada** de VS Code (o Insiders, Cursor, Windsurf o VSCodium)
+## 4. Ir a la terminal exacta
 
-¿Recién empiezas con todo esto? Sigue la guía paso a paso: **[Instalar Claude Code en una Mac](docs/install-claude-code-mac.es.md)**.
+Al tocar un aviso, o una sesión en la barra de menú:
+
+1. La ventana de VS Code con ese proyecto pasa al frente.
+2. Se selecciona **la terminal donde corre esa sesión de Claude**, no "una" terminal cualquiera.
+
+Lo hace una extensión mínima de VS Code incluida (`ccnotify.focus-terminal`), que reconoce la terminal por el proceso de
+Claude. Funciona con **VS Code, Insiders, Cursor, Windsurf y VSCodium**. Si usas otra app (Terminal, iTerm2), solo la
+trae al frente.
+
+## 5. Barra de menú
+
+Un ícono muestra el estado más urgente de todas tus sesiones:
+
+| Ícono | Qué significa |
+|---|---|
+| Color de atención | Una sesión **te necesita** (permiso, pregunta, agente). |
+| Color de acento | Una sesión **te escribió** y todavía no lo viste. |
+| Gris | Las sesiones están **pensando**, o no hay nada pendiente. |
+
+El menú lista cada sesión con su proyecto, su estado, hace cuánto y un resumen de una línea. Tócala para ir a ella.
+En el estilo `mono` el ícono queda gris y el estado se nota por su forma.
+
+## 6. Sonidos
+
+| Tipo | Sonido por defecto | Cuándo suena |
+|---|---|---|
+| Terminó | Glass (suave) | Solo si la tarea tardó más de 15 s **y** VS Code no es la app que tienes al frente. |
+| Pide permiso | Submarine | Siempre. |
+| Pregunta | Ping | Siempre. |
+| Un agente pregunta | Purr | Siempre. |
+
+- Cualquier sonido de `/System/Library/Sounds`, un archivo en `~/Library/Sounds`, la ruta completa a un audio, o `""` (silencio).
+- Como máximo un sonido cada 3 segundos, y **horas de silencio** opcionales (los avisos se siguen mostrando).
+
+## 7. Línea de estado (opcional)
+
+```
+my-project  Sonnet high │ ctx 52% │ sesión ~1.2% ~$0.28 45k │ 5h 12% ↻3:00pm │ sem 45% $10.38/$23
+```
+
+Una línea gris al pie de Claude Code: proyecto · modelo · contexto · esta sesión · límites de 5 horas y de la semana.
+El color aparece solo arriba del 40 %. Los dólares aparecen solo si pones el precio de tu plan; el ticker de mercado
+opcional viene **apagado** (es lo único que usa internet). Detalles: **[docs/statusline.es.md](docs/statusline.es.md)**.
+
+---
 
 ## Instalar
+
+**Requisitos:** macOS 12 o más nuevo (Intel o Apple Silicon), las herramientas de línea de comandos de Xcode
+(`xcode-select --install`) y Claude Code usado desde la **terminal integrada** de VS Code (o Insiders, Cursor, Windsurf
+o VSCodium). ¿Recién empiezas? → **[Instalar Claude Code en una Mac, paso a paso](docs/install-claude-code-mac.es.md)**.
 
 ```bash
 git clone https://github.com/Migentetamoenjapon/claude-code-vscode-notifications.git
 cd claude-code-vscode-notifications
-./install.sh              # agrega --statusline para instalar también la línea de estado
+./install.sh --statusline      # quita --statusline si no quieres la línea de estado
 ```
 
-El instalador:
+Después **abre una sesión nueva de Claude Code** para que cargue los hooks.
 
-1. Compila las dos apps en tu Mac a partir del código, sin binarios descargados, así que macOS no muestra advertencias.
-2. Copia todo a `~/.claude/ccnotify/`.
-3. **Agrega** sus hooks a `~/.claude/settings.json`. Los hooks que ya tengas se quedan, y antes guarda un respaldo con fecha.
-4. Hace que la app de la barra de menú arranque al iniciar sesión (con un LaunchAgent).
-5. Instala la extensión "Focus Terminal" en cada editor de la familia VS Code que encuentre.
+| Paso | Qué hace el instalador |
+|---|---|
+| 1 | Compila las dos apps en tu Mac a partir del código (sin binarios descargados, sin advertencias de macOS). |
+| 2 | Copia todo a `~/.claude/ccnotify/`. |
+| 3 | **Agrega** sus hooks a `~/.claude/settings.json`: los tuyos se quedan y antes guarda un respaldo con fecha. |
+| 4 | Hace que la barra de menú arranque al iniciar sesión (LaunchAgent). |
+| 5 | Instala la extensión Focus Terminal en cada editor de la familia VS Code que encuentre. |
 
-Opciones útiles: `--dry-run` (muestra lo que haría), `--statusline`, `--force` (reemplaza una línea de estado que ya
-tengas) y `--universal` (compila para Intel y Apple Silicon). Después, reinicia tus sesiones de Claude Code para que
-carguen los hooks.
+Opciones: `--dry-run` (muestra, no cambia nada) · `--statusline` · `--force` (reemplaza una línea de estado que ya
+tengas) · `--universal` (compila para Intel y Apple Silicon).
 
 ## Configurar
 
-Edita `~/.claude/ccnotify/config.json`. Todas las claves son opcionales; mira [`config.example.json`](config.example.json).
+Edita `~/.claude/ccnotify/config.json`. Todas las claves son opcionales ([`config.example.json`](config.example.json)
+las tiene todas). Los cambios se aplican desde el siguiente aviso.
 
 ```json
 {
   "language": "es",
-  "popup": { "seconds": 60, "width": 460, "max_height_ratio": 0.6, "font_size": 13,
-             "sticky_needs_you": true, "private": false,
-             "style": "default", "compact_lines": 2 },
+  "popup":  { "style": "default", "seconds": 60, "width": 460, "max_height_ratio": 0.6,
+              "compact_lines": 2, "font_size": 13, "sticky_needs_you": true, "private": false },
   "sounds": {
     "done":       { "sound": "Glass",     "volume": 0.5, "only_when_away": true, "min_turn_seconds": 15 },
     "permission": { "sound": "Submarine", "volume": 0.8 },
@@ -102,60 +169,62 @@ Edita `~/.claude/ccnotify/config.json`. Todas las claves son opcionales; mira [`
 }
 ```
 
-- **`style`**: `default`, `color` o `mono` (mira las capturas de arriba). **`compact_lines`**: cuántas líneas conservan los avisos anteriores de la pila (2 por defecto).
-- **`language`**: `auto` (sigue el idioma de macOS), `en` o `es`.
-- **Sonidos**: cualquier nombre de `/System/Library/Sounds` (Basso, Blow, Bottle, Frog, Funk, Glass, Hero, Morse, Ping,
-  Pop, Purr, Sosumi, Submarine, Tink), un archivo que pongas en `~/Library/Sounds`, la ruta completa a un archivo de
-  audio, o `""` para que no suene.
-- **`private`**: muestra solo el proyecto y el tipo de mensaje, nunca el texto. Sirve para cuando presentas.
-  Además, los avisos no aparecen al compartir pantalla.
-- **`events`**: apaga por completo los avisos de un tipo.
-
-Los cambios se aplican desde el siguiente aviso, sin reiniciar nada.
-
-## Línea de estado
-
-`./install.sh --statusline` la configura. Qué significa cada parte y sus opciones (el precio de tu plan para ver
-dólares, y un ticker de mercado opcional, apagado de fábrica y lo único que usa internet):
-**[docs/statusline.es.md](docs/statusline.es.md)**.
-
-## Privacidad y permisos
-
-- Todo corre en tu Mac. No se envía nada a ningún lado.
-- Para decidir cuándo avisar, el hook lee el **final** del historial de la sesión que Claude Code ya guarda en
-  `~/.claude/projects/`. El aviso muestra el último mensaje de Claude, y la barra de menú guarda un resumen de una
-  línea por cada sesión abierta.
-- Se guarda en `~/.claude/ccnotify/state/` con permisos privados (carpetas 0700, archivos 0600). Los avisos en cola
-  se borran al mostrarse, y cualquier cosa de más de una hora se limpia. El registro nunca incluye el texto de los mensajes.
-- No pide permisos especiales de macOS: ni Accesibilidad, ni Grabación de pantalla, ni Automatización.
+| Grupo | Clave | Qué hace |
+|---|---|---|
+| General | `language` | `auto` (sigue a macOS), `en` o `es`. |
+| Cómo se ve | `style` | `default`, `color` o `mono`. |
+| | `width`, `font_size` | Ancho de la tarjeta (pt) y tamaño de letra. |
+| | `max_height_ratio` | Fracción del alto de la pantalla antes de que haya scroll. |
+| | `compact_lines` | Líneas que conservan los avisos anteriores de la pila. |
+| Cómo se comporta | `seconds` | Cuándo se van los avisos de "terminó". |
+| | `sticky_needs_you` | Mantener los de permiso, pregunta y agente hasta que respondas. |
+| | `private` | Mostrar solo el proyecto y el tipo, nunca el texto. Los avisos nunca aparecen al compartir pantalla. |
+| Sonidos | `sounds.<tipo>` | `sound`, `volume`, `only_when_away`; `done` además tiene `min_turn_seconds`. |
+| | `quiet_hours` | Silenciar los sonidos en un horario. |
+| Eventos | `events.<tipo>` | Apagar por completo un tipo de aviso. |
+| Línea de estado | `statusline` | Mira [docs/statusline.es.md](docs/statusline.es.md). |
 
 ## Desinstalar
 
 ```bash
-./uninstall.sh            # quita los hooks, la línea de estado (si es la nuestra), las apps, el LaunchAgent y la extensión
+./uninstall.sh            # quita los hooks, la línea de estado (solo si es la nuestra), las apps, el LaunchAgent y la extensión
 ./uninstall.sh --purge    # además borra ~/.claude/ccnotify (configuración y estado)
 ```
 
-## Si algo no funciona
+## Privacidad y permisos
 
-- **No aparece ningún aviso**: reinicia tus sesiones de Claude Code, porque los hooks se cargan al empezar. Después mira
-  `~/.claude/ccnotify/state/ccnotify.log`, donde queda cada decisión (sin el texto de los mensajes).
-- **El clic no llega a la terminal**: la extensión "Focus Terminal" tiene que estar activa en ese editor
-  (Extensiones → busca `ccnotify`). Si instalas un editor nuevo, vuelve a correr `./install.sh`.
-- **Usas Claude desde el panel de Claude Code de VS Code, no desde una terminal**: los avisos y sonidos funcionan; el
-  clic trae la ventana, pero no hay terminal que seleccionar.
-- **Suena demasiado**: sube `sounds.done.min_turn_seconds`, pon `"sound": ""` en un tipo o activa `quiet_hours`.
+- **Todo local.** Sin cuentas, sin servidor, sin telemetría.
+- **Qué lee:** el final del historial de la sesión que Claude Code ya guarda en `~/.claude/projects/`, para decidir
+  cuándo avisar. El aviso muestra el último mensaje de Claude.
+- **Qué guarda:** `~/.claude/ccnotify/state/`, con permisos privados (0700/0600). Los avisos en cola se borran al
+  mostrarse y lo de más de una hora se limpia. El registro nunca incluye el texto de los mensajes.
+- **Permisos de macOS:** ninguno. Ni Accesibilidad, ni Grabación de pantalla, ni Automatización.
+
+## Si algo falla
+
+| Síntoma | Qué hacer |
+|---|---|
+| No aparece ningún aviso | Abre una sesión **nueva** de Claude Code (los hooks se cargan al empezar). Después mira `~/.claude/ccnotify/state/ccnotify.log`. |
+| El clic no llega a la terminal | Revisa que la extensión esté activa (Extensiones → busca `ccnotify`). ¿Instalaste otro editor? Vuelve a correr `./install.sh`. |
+| Usas Claude en el panel de VS Code, no en una terminal | Los avisos y sonidos funcionan; el clic trae la ventana, pero no hay terminal que seleccionar. |
+| Suena demasiado | Sube `sounds.done.min_turn_seconds`, pon `"sound": ""` en un tipo o activa `quiet_hours`. |
 
 ## Cómo funciona
 
-Cinco hooks de Claude Code llaman a un script pequeño de Python, que decide si avisar y escribe un archivo JSON; una
-app nativa en Swift lo muestra. Detalles, archivos y decisiones de diseño (en inglés):
-**[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
+```
+Claude Code ──hooks──▶ notify.py ──JSON──▶ CCNotify.app (aviso) ──clic──▶ focus_session.py ──▶ extensión de VS Code
+                          │                                                                   (muestra la terminal)
+                          └──estado de sesiones──▶ CCNotify Sessions.app (barra de menú)
+```
+
+Cinco hooks (`Stop`, `Notification`, `UserPromptSubmit`, `SessionStart`, `SessionEnd`) llaman a un script de Python,
+que decide si avisar; dos apps nativas en Swift dibujan el aviso y la barra de menú. Detalles del diseño (en inglés):
+**[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** · Todas las capturas: **[docs/gallery.md](docs/gallery.md)**.
 
 ## Colaborar
 
-Los issues y pull requests son bienvenidos. Corre las pruebas con `python3 -m unittest discover -s tests` y genera las
-capturas de ejemplo con `tests/render/render_samples.sh`. La idea es que siga sin dependencias y todo local.
+Los issues y pull requests son bienvenidos. Pruebas: `python3 -m unittest discover -s tests`. Capturas:
+`tests/render/render_samples.sh`. La idea es que siga sin dependencias y todo local.
 
 ## Licencia
 
