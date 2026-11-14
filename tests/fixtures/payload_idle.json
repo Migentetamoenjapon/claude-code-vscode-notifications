@@ -1,0 +1,7 @@
+{
+  "session_id": "sess-idle-0003",
+  "cwd": "/Users/you/my-project",
+  "hook_event_name": "Notification",
+  "notification_type": "idle_prompt",
+  "message": "Claude is waiting for your input"
+}

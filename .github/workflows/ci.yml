@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python tests
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+
+      - name: Shell syntax
+        run: |
+          for f in install.sh uninstall.sh hooks/notify.sh scripts/*.sh; do
+            [ -f "$f" ] && bash -n "$f"
+          done
+          true
+
+      - name: ShellCheck
+        run: |
+          command -v shellcheck >/dev/null || brew install shellcheck
+          files=$(ls install.sh uninstall.sh hooks/notify.sh scripts/*.sh 2>/dev/null)
+          shellcheck $files
+
+      - name: Extension syntax
+        run: node --check vscode-extension/extension.js
+
+      - name: Build the extension package
+        run: python3 vscode-extension/package.py --out "$RUNNER_TEMP/focus-terminal.vsix"
+
+      - name: Build the Swift apps
+        run: |
+          if [ -x scripts/build.sh ]; then
+            scripts/build.sh "$RUNNER_TEMP/ccnotify-build"
+            test -d "$RUNNER_TEMP/ccnotify-build/CCNotify.app"
+            test -d "$RUNNER_TEMP/ccnotify-build/CCNotify Sessions.app"
+          else
+            echo "scripts/build.sh not found" >&2
+            exit 1
+          fi

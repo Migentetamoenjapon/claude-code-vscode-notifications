@@ -1,0 +1,7 @@
+{
+  "session_id": "sess-main-0002",
+  "cwd": "/Users/you/my-project",
+  "hook_event_name": "Notification",
+  "notification_type": "agent_needs_input",
+  "message": "reviewer needs your input: Which branch should I compare against?"
+}

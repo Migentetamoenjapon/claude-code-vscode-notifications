@@ -1,0 +1,5 @@
+{"type":"user","message":{"role":"user","content":"Run two reviews in the background"},"timestamp":"2026-11-14T12:00:00.000Z"}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_AAA","content":[{"type":"text","text":"Async agent launched successfully.\nagentId: a111 (internal ID)\nThe agent is working in the background."}]}]},"timestamp":"2026-11-14T12:00:10.000Z"}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_BBB","content":[{"type":"text","text":"Workflow launched in background.\nTranscript dir: /nonexistent/ccnotify-test/workflow-b"}]}]},"timestamp":"2026-11-14T12:00:11.000Z"}
+{"type":"user","message":{"role":"user","content":"<task-notification>\n<task-id>a111</task-id>\n<tool-use-id>toolu_AAA</tool-use-id>\n<status>completed</status>\n</task-notification>"},"timestamp":"2026-11-14T12:03:00.000Z"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"One review is done, the other is still running."}]},"timestamp":"2026-11-14T12:03:05.000Z"}

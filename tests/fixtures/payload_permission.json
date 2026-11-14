@@ -1,0 +1,11 @@
+{
+  "session_id": "sess-perm-0001",
+  "cwd": "/Users/you/my-project",
+  "hook_event_name": "Notification",
+  "notification_type": "permission_prompt",
+  "message": "Claude needs your permission to use Bash",
+  "notification_data": {
+    "tool_name": "Bash",
+    "tool_input": { "command": "rm -rf build/*", "description": "Delete the build folder" }
+  }
+}

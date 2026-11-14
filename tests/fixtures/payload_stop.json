@@ -1,0 +1,7 @@
+{
+  "session_id": "sess-stop-0004",
+  "cwd": "/Users/you/my-project",
+  "hook_event_name": "Stop",
+  "stop_hook_active": false,
+  "last_assistant_message": "All **tests** pass now.\n\n- fixed `a.py`"
+}

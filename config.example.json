@@ -1,0 +1,22 @@
+{
+  "language": "auto",
+  "popup": {
+    "enabled": true,
+    "seconds": 60,
+    "width": 460,
+    "max_height_ratio": 0.6,
+    "max_stacked": 4,
+    "sticky_needs_you": true,
+    "font_size": 13,
+    "private": false
+  },
+  "sounds": {
+    "done": { "sound": "Glass", "volume": 0.5, "only_when_away": true, "min_turn_seconds": 15 },
+    "permission": { "sound": "Submarine", "volume": 0.8, "only_when_away": false },
+    "question": { "sound": "Ping", "volume": 0.8, "only_when_away": false },
+    "agent": { "sound": "Purr", "volume": 0.7, "only_when_away": false }
+  },
+  "quiet_hours": { "enabled": false, "from": "22:00", "to": "07:00" },
+  "events": { "done": true, "permission": true, "question": true, "agent": true },
+  "statusline": {}
+}
