@@ -115,6 +115,29 @@ class FocusSession(unittest.TestCase):
         self.assertEqual(stat.S_IMODE(os.stat(path).st_mode), 0o600)
         self.assertEqual([n for n in os.listdir(os.path.dirname(path)) if n.endswith(".tmp")], [])
 
+    def test_background_job_request_and_no_folder_open(self):
+        # A background session: the request carries the job id so the extension can `claude attach` it,
+        # and the job's own folder is NOT opened (it could raise a different window).
+        self.write_storage("Code", storage(["/Users/you/my-project"]))
+        run = FakeRun(parents={300: 200, 200: 100, 100: 1})
+        command = fs.focus("com.microsoft.VSCode", "/Users/you/my-project", 300, self.home, self.env, run,
+                           job="a3b56e59")
+        self.assertEqual(command, ["open", "-b", "com.microsoft.VSCode"])
+        with open(os.path.join(self.home, "state", "focus-request.json"), encoding="utf-8") as f:
+            request = json.load(f)
+        self.assertEqual(request["job"], "a3b56e59")
+        self.assertEqual(request["cwd"], "/Users/you/my-project")
+        self.assertTrue(request["claude"])
+
+    def test_invalid_job_id_is_ignored(self):
+        self.write_storage("Code", storage(["/Users/you/my-project"]))
+        run = FakeRun(parents={300: 1})
+        command = fs.focus("com.microsoft.VSCode", "/Users/you/my-project", 300, self.home, self.env, run,
+                           job="x; rm -rf /")
+        self.assertEqual(command, ["open", "-b", "com.microsoft.VSCode", "/Users/you/my-project"])
+        with open(os.path.join(self.home, "state", "focus-request.json"), encoding="utf-8") as f:
+            self.assertNotIn("job", json.load(f))
+
     def test_process_chain_stops_at_init_and_limit(self):
         self.assertEqual(fs.process_chain(5, FakeRun({5: 4, 4: 1})), [5, 4])
         loop = FakeRun({n: n + 1 for n in range(2, 100)})

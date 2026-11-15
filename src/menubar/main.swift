@@ -137,6 +137,7 @@ struct FocusTarget {
     var host = ""
     var cwd = ""
     var pid: Int?
+    var job = ""   // background session id (claude --bg)
 }
 
 struct Session {
@@ -265,6 +266,7 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 focus.host = (f["host"] as? String) ?? ""
                 focus.cwd = (f["cwd"] as? String) ?? ""
                 if let p = number(f["pid"]), p > 0 { focus.pid = Int(p) }
+                focus.job = (f["job"] as? String) ?? ""
             }
             if focus.host.isEmpty { focus.host = (o["host"] as? String) ?? "" }
             if focus.cwd.isEmpty { focus.cwd = (o["cwd"] as? String) ?? "" }
@@ -502,6 +504,7 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if !f.host.isEmpty { args += ["--host", f.host] }
         if !f.cwd.isEmpty { args += ["--cwd", f.cwd] }
         if let pid = f.pid { args += ["--pid", String(pid)] }
+        if !f.job.isEmpty { args += ["--job", f.job] }
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         p.arguments = args

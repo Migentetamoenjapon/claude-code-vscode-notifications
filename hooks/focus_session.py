@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Bring forward the editor window where a Claude Code session runs.
 
-    focus_session.py --host <bundle-id> --cwd <session folder> [--pid <claude pid>]
+    focus_session.py --host <bundle-id> --cwd <session folder> [--pid <claude pid>] [--job <background id>]
 
 Two steps:
 
@@ -18,6 +18,8 @@ Never runs a shell string; every command is an argv list. Python 3.9+, standard 
 import argparse
 import json
 import os
+import re
+import shutil
 import subprocess
 import sys
 import time
@@ -71,11 +73,31 @@ def process_chain(pid, run=subprocess.run, limit=15):
     return pids
 
 
-def request_terminal(home, pid, run=subprocess.run, now=None):
-    """Atomically write state/focus-request.json for the editor extension."""
+JOB_ID = re.compile(r"^[A-Za-z0-9_-]{4,40}$")
+
+
+def claude_path(env=None):
+    """Where the `claude` command lives (popups run with a minimal PATH, so look in the usual places)."""
+    env = os.environ if env is None else env
+    for candidate in (shutil.which("claude", path=env.get("PATH")), os.path.expanduser("~/.local/bin/claude"),
+                      "/opt/homebrew/bin/claude", "/usr/local/bin/claude"):
+        if candidate and os.access(candidate, os.X_OK):
+            return candidate
+    return "claude"
+
+
+def request_terminal(home, pid, run=subprocess.run, now=None, job="", cwd="", env=None):
+    """Atomically write state/focus-request.json for the editor extension.
+
+    With `job` (a background session started with `claude --bg`), the extension opens or reuses a terminal
+    running `claude attach <job>` in the window of the main session, because background sessions have no
+    terminal of their own."""
     pids = process_chain(pid, run)
     if not pids:
         return False
+    request = {"at": time.time() if now is None else now, "pids": pids}
+    if job and JOB_ID.match(job):
+        request.update(job=job, cwd=cwd, claude=claude_path(env))
     state = os.path.join(home, "state")
     target = os.path.join(state, "focus-request.json")
     tmp = "%s.%d.tmp" % (target, os.getpid())
@@ -83,7 +105,7 @@ def request_terminal(home, pid, run=subprocess.run, now=None):
         os.makedirs(state, mode=0o700, exist_ok=True)
         fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump({"at": time.time() if now is None else now, "pids": pids}, f)
+            json.dump(request, f)
         os.replace(tmp, target)
         return True
     except OSError:
@@ -117,15 +139,18 @@ def most_specific_folder(folders, cwd):
     return max(candidates, key=len) if candidates else None
 
 
-def focus(host, cwd, pid=0, home=None, env=None, run=subprocess.run):
+def focus(host, cwd, pid=0, home=None, env=None, run=subprocess.run, job=""):
     """Do both steps. Returns the `open` argv that was run (for tests and logs)."""
     env = os.environ if env is None else env
     host = host or DEFAULT_HOST
     family = host in EDITOR_SUPPORT_DIRS
+    job = job if job and JOB_ID.match(job) else ""
     if pid and family:
-        request_terminal(home or resolve_home(env), pid, run)
+        request_terminal(home or resolve_home(env), pid, run, job=job, cwd=cwd or "", env=env)
     command = ["open", "-b", host]
-    if family:
+    # For a background session the extension raises the main session's window itself; opening the job's
+    # folder could bring a different window forward.
+    if family and not job:
         folder = most_specific_folder(open_folders(storage_path(host, env)), cwd or "")
         if folder:
             command.append(folder)
@@ -141,8 +166,9 @@ def main(argv=None):
     parser.add_argument("--host", default=DEFAULT_HOST, help="bundle id of the app hosting the session")
     parser.add_argument("--cwd", default="", help="working folder of the session")
     parser.add_argument("--pid", type=int, default=0, help="PID of the Claude Code process")
+    parser.add_argument("--job", default="", help="short id of a background session (claude --bg)")
     args = parser.parse_args(argv)
-    focus(args.host, args.cwd, args.pid)
+    focus(args.host, args.cwd, args.pid, job=args.job)
     return 0
 
 

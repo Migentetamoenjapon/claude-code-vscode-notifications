@@ -538,6 +538,11 @@ class Hook(object):
         pid = self.claude_pid
         if pid:
             focus["pid"] = pid
+        # Background sessions (`claude --bg`) have no terminal of their own: they are children of the main
+        # session. Their short id (the name of CLAUDE_JOB_DIR) lets the extension run `claude attach <id>`.
+        job = os.path.basename(str(self.env.get("CLAUDE_JOB_DIR", "")).rstrip("/"))
+        if re.fullmatch(r"[A-Za-z0-9_-]{4,40}", job or ""):
+            focus["job"] = job
         base = {"project": project, "cwd": cwd, "transcript": transcript_path, "host": host,
                 "focus": focus, "pid": pid}
 

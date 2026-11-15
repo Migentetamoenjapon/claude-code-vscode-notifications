@@ -132,6 +132,7 @@ struct FocusTarget {
     var host = ""
     var cwd = ""
     var pid: Int?
+    var job = ""   // background session id (claude --bg)
 }
 
 struct Input {
@@ -202,6 +203,7 @@ func readInput() -> Input {
         d.focus.host = (f["host"] as? String) ?? ""
         d.focus.cwd = (f["cwd"] as? String) ?? ""
         if let p = number(f["pid"]), p > 0 { d.focus.pid = Int(p) }
+        d.focus.job = (f["job"] as? String) ?? ""
     }
     if d.focus.host.isEmpty { d.focus.host = d.host }
     if let v = number(o["transcript_size"]), v >= 0 { d.transcriptSize = UInt64(v) }
@@ -1329,6 +1331,7 @@ final class Popup: NSObject, NSApplicationDelegate {
         if !f.host.isEmpty { args += ["--host", f.host] }
         if !f.cwd.isEmpty { args += ["--cwd", f.cwd] }
         if let pid = f.pid { args += ["--pid", String(pid)] }
+        if !f.job.isEmpty { args += ["--job", f.job] }
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         p.arguments = args
