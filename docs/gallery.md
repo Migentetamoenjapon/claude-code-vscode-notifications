@@ -47,39 +47,39 @@ All images are made from the real apps and scripts with fictional projects: popu
 
 ## Styles
 
-`"popup": { "style": "default" | "color" | "mono" }`
+`"popup": { "style": "color" | "neutral" | "mono" }` (default: `color`)
 
 ### Done
 
-| default | color | mono |
+| color (default) | neutral | mono |
 |---|---|---|
-| <img src="img/popup-style-default-done-light.png" width="280" alt="default style, Done, light"> | <img src="img/popup-style-color-done-light.png" width="280" alt="color style, Done, light"> | <img src="img/popup-style-mono-done-light.png" width="280" alt="mono style, Done, light"> |
-| <img src="img/popup-style-default-done-dark.png" width="280" alt="default style, Done, dark"> | <img src="img/popup-style-color-done-dark.png" width="280" alt="color style, Done, dark"> | <img src="img/popup-style-mono-done-dark.png" width="280" alt="mono style, Done, dark"> |
+| <img src="img/popup-style-color-done-light.png" width="280" alt="color style, Done, light"> | <img src="img/popup-style-neutral-done-light.png" width="280" alt="neutral style, Done, light"> | <img src="img/popup-style-mono-done-light.png" width="280" alt="mono style, Done, light"> |
+| <img src="img/popup-style-color-done-dark.png" width="280" alt="color style, Done, dark"> | <img src="img/popup-style-neutral-done-dark.png" width="280" alt="neutral style, Done, dark"> | <img src="img/popup-style-mono-done-dark.png" width="280" alt="mono style, Done, dark"> |
 
 ### Needs permission
 
-| default | color | mono |
+| color (default) | neutral | mono |
 |---|---|---|
-| <img src="img/popup-style-default-permission-light.png" width="280" alt="default style, Needs permission, light"> | <img src="img/popup-style-color-permission-light.png" width="280" alt="color style, Needs permission, light"> | <img src="img/popup-style-mono-permission-light.png" width="280" alt="mono style, Needs permission, light"> |
-| <img src="img/popup-style-default-permission-dark.png" width="280" alt="default style, Needs permission, dark"> | <img src="img/popup-style-color-permission-dark.png" width="280" alt="color style, Needs permission, dark"> | <img src="img/popup-style-mono-permission-dark.png" width="280" alt="mono style, Needs permission, dark"> |
+| <img src="img/popup-style-color-permission-light.png" width="280" alt="color style, Needs permission, light"> | <img src="img/popup-style-neutral-permission-light.png" width="280" alt="neutral style, Needs permission, light"> | <img src="img/popup-style-mono-permission-light.png" width="280" alt="mono style, Needs permission, light"> |
+| <img src="img/popup-style-color-permission-dark.png" width="280" alt="color style, Needs permission, dark"> | <img src="img/popup-style-neutral-permission-dark.png" width="280" alt="neutral style, Needs permission, dark"> | <img src="img/popup-style-mono-permission-dark.png" width="280" alt="mono style, Needs permission, dark"> |
 
 ### Question
 
-| default | color | mono |
+| color (default) | neutral | mono |
 |---|---|---|
-| <img src="img/popup-style-default-question-light.png" width="280" alt="default style, Question, light"> | <img src="img/popup-style-color-question-light.png" width="280" alt="color style, Question, light"> | <img src="img/popup-style-mono-question-light.png" width="280" alt="mono style, Question, light"> |
-| <img src="img/popup-style-default-question-dark.png" width="280" alt="default style, Question, dark"> | <img src="img/popup-style-color-question-dark.png" width="280" alt="color style, Question, dark"> | <img src="img/popup-style-mono-question-dark.png" width="280" alt="mono style, Question, dark"> |
+| <img src="img/popup-style-color-question-light.png" width="280" alt="color style, Question, light"> | <img src="img/popup-style-neutral-question-light.png" width="280" alt="neutral style, Question, light"> | <img src="img/popup-style-mono-question-light.png" width="280" alt="mono style, Question, light"> |
+| <img src="img/popup-style-color-question-dark.png" width="280" alt="color style, Question, dark"> | <img src="img/popup-style-neutral-question-dark.png" width="280" alt="neutral style, Question, dark"> | <img src="img/popup-style-mono-question-dark.png" width="280" alt="mono style, Question, dark"> |
 
 ### Agent asks
 
-| default | color | mono |
+| color (default) | neutral | mono |
 |---|---|---|
-| <img src="img/popup-style-default-agent-light.png" width="280" alt="default style, Agent asks, light"> | <img src="img/popup-style-color-agent-light.png" width="280" alt="color style, Agent asks, light"> | <img src="img/popup-style-mono-agent-light.png" width="280" alt="mono style, Agent asks, light"> |
-| <img src="img/popup-style-default-agent-dark.png" width="280" alt="default style, Agent asks, dark"> | <img src="img/popup-style-color-agent-dark.png" width="280" alt="color style, Agent asks, dark"> | <img src="img/popup-style-mono-agent-dark.png" width="280" alt="mono style, Agent asks, dark"> |
+| <img src="img/popup-style-color-agent-light.png" width="280" alt="color style, Agent asks, light"> | <img src="img/popup-style-neutral-agent-light.png" width="280" alt="neutral style, Agent asks, light"> | <img src="img/popup-style-mono-agent-light.png" width="280" alt="mono style, Agent asks, light"> |
+| <img src="img/popup-style-color-agent-dark.png" width="280" alt="color style, Agent asks, dark"> | <img src="img/popup-style-neutral-agent-dark.png" width="280" alt="neutral style, Agent asks, dark"> | <img src="img/popup-style-mono-agent-dark.png" width="280" alt="mono style, Agent asks, dark"> |
 
 ## Menu bar
 
-### Default style
+### Color and neutral styles
 
 <img src="img/menubar-light.png" width="420" alt="Menu bar with its menu open, light"> <img src="img/menubar-dark.png" width="420" alt="Menu bar with its menu open, dark">
 

@@ -97,7 +97,7 @@ stripe on one side of the card).
   "transcript": "/path/x.jsonl", "transcript_size": 123456, "event_at": <epoch>,
   "language": "en", "sound": "Glass", "volume": 0.5, "only_when_away": true,
   "seconds": 60, "width": 460, "max_height_ratio": 0.6, "max_stacked": 4, "compact_lines": 2,
-  "sticky_needs_you": true, "font_size": 13, "private": false, "style": "default"
+  "sticky_needs_you": true, "font_size": 13, "private": false, "style": "color"
 }
 ```
 
@@ -183,9 +183,11 @@ These refine everything above. When in doubt, this section wins.
   also finds files in `~/Library/Sounds`) or an absolute path; `""` = silent.
 
 ### Styles (added after visual review)
-- `popup.style`: `"default"` (neutral card; needs-you kinds in the attention tint), `"color"` (one hue per kind —
-  done green, permission orange, question blue, agent violet — with a subtle full-surface tint and a thin full border),
+- `popup.style`: `"color"` (the default; one hue per kind — done green, permission orange, question blue, agent
+  violet — with a subtle full-surface tint and a thin full border), `"neutral"` (neutral card; needs-you kinds in the
+  attention tint),
   `"mono"` (grayscale only; needs-you kinds use a filled symbol, semibold label and a stronger full border).
+  Any other value, or a missing key, means `"color"` (validated in `hooks/notify.py`, and again in the popup app).
 - `popup.compact_lines` (default 2): lines shown by older popups in the stack.
 - Layout: header row (small icon · project · kind) separated from the body by a hairline rule; the body uses the
   full card width.

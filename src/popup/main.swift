@@ -154,7 +154,7 @@ struct Input {
     var fontSize = 13.0
     var stickyNeedsYou = true
     var isPrivate = false
-    var style = Style.standard
+    var style = Style.color
     var compactLines = 2
     var focus = FocusTarget()
     var transcriptSize: UInt64?
@@ -259,7 +259,7 @@ let increaseContrast = accessibility.accessibilityDisplayShouldIncreaseContrast
 let reduceMotion = accessibility.accessibilityDisplayShouldReduceMotion
 
 enum Style: String {
-    case standard = "default", color, mono
+    case color, neutral, mono
 }
 
 struct Palette {
@@ -332,7 +332,7 @@ struct Palette {
                                  dark: NSColor(hex: kind.hue.dark, alpha: 0.08)),
                 cardBorderWidth: (kind.needsYou ? 1.25 : 1) + extra)
 
-        case .standard:
+        case .neutral:
             let attentionLight = NSColor(hex: 0xB8532F)
             let attentionDark = NSColor(hex: 0xE8977A)
             let border = dynamic(light: NSColor(hex: 0x000000, alpha: borderAlpha),
@@ -788,7 +788,7 @@ final class Popup: NSObject, NSApplicationDelegate {
 
     var screen: NSScreen!
     var screenID = 0
-    var palette = Palette.make(style: .standard, kind: .done)
+    var palette = Palette.make(style: .color, kind: .done)
     var panel: Panel!
     var card: CardView!
     var summary: NSTextField!

@@ -51,7 +51,7 @@ DEFAULT_CONFIG = {
         "sticky_needs_you": True,
         "font_size": 13,
         "private": False,
-        "style": "default",       # "default" | "color" | "mono"
+        "style": "color",         # "color" | "neutral" | "mono"; anything else means "color"
         "compact_lines": 2,       # lines shown by older popups in the stack
     },
     "sounds": {
@@ -713,7 +713,7 @@ class Hook(object):
             "max_height_ratio": popup_cfg["max_height_ratio"], "max_stacked": popup_cfg["max_stacked"],
             "sticky_needs_you": popup_cfg["sticky_needs_you"], "font_size": popup_cfg["font_size"],
             "private": private,
-            "style": popup_cfg["style"] if popup_cfg["style"] in ("default", "color", "mono") else "default",
+            "style": popup_cfg["style"] if popup_cfg["style"] in ("color", "neutral", "mono") else "color",
             "compact_lines": popup_cfg["compact_lines"],
         }
         subtitle = tr(self.lang, "label_" + kind)

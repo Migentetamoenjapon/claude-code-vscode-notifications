@@ -37,7 +37,7 @@ VS Code** de esa sesión, y un ícono en la barra de menú sigue todas tus sesio
 | | Función | En una línea |
 |---|---|---|
 | 1 | **Avisos** | El último mensaje de Claude, con formato, cuando termina, pide permiso, pregunta algo o un agente te necesita. |
-| 2 | **Estilos** | `default`, `color` (un color por tipo) o `mono` (grises). |
+| 2 | **Estilos** | `color` (un color por tipo, por defecto), `neutral` o `mono` (grises). |
 | 3 | **Mensajes largos y pila** | Los largos tienen scroll; los anteriores se achican a dos líneas. |
 | 4 | **Ir a la terminal** | Un clic → la ventana correcta de VS Code y la terminal exacta. |
 | 5 | **Barra de menú** | Todas las sesiones de un vistazo: te necesita · te escribió · pensando. |
@@ -52,28 +52,28 @@ VS Code** de esa sesión, y un ícono en la barra de menú sigue todas tus sesio
 
 ## 1. Avisos
 
-Una tarjeta translúcida arriba a la derecha. Cada tipo de mensaje tiene su ícono y su etiqueta. Los que **te
-necesitan** (permiso, pregunta, agente) llevan color y un borde fino completo, y **se quedan hasta que respondes**.
+Una tarjeta translúcida arriba a la derecha. Cada tipo de mensaje tiene su ícono, su etiqueta y su color. Los que **te
+necesitan** (permiso, pregunta, agente) llevan un borde más marcado y **se quedan hasta que respondes**.
 Los de "terminó" se van a los 60 s (la cuenta se pausa si tienes el mouse encima o no estás frente a la compu).
 
 | Terminó | Pide permiso |
 |---|---|
 | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-table-es-dark.png"><img src="docs/img/popup-table-es-light.png" width="400" alt="Aviso en español: terminó, con un título y una tabla"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-permission-es-dark.png"><img src="docs/img/popup-permission-es-light.png" width="400" alt="Aviso en español: pide permiso para correr un comando de Bash"></picture> |
 | **Pregunta** | **Un agente en segundo plano pregunta** |
-| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-default-question-dark.png"><img src="docs/img/popup-style-default-question-light.png" width="400" alt="Aviso donde Claude pregunta qué base de datos usar"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-default-agent-dark.png"><img src="docs/img/popup-style-default-agent-light.png" width="400" alt="Aviso donde un agente revisor pide una decisión"></picture> |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-color-question-dark.png"><img src="docs/img/popup-style-color-question-light.png" width="400" alt="Aviso donde Claude pregunta qué base de datos usar"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-color-agent-dark.png"><img src="docs/img/popup-style-color-agent-light.png" width="400" alt="Aviso donde un agente revisor pide una decisión"></picture> |
 
 Muestra títulos, **negritas**, *cursivas*, `código`, bloques de código, listas, citas y tablas de verdad con columnas
 alineadas. Las imágenes siguen el tema claro u oscuro de tu GitHub; el aviso sigue el de macOS.
 
 ## 2. Estilos
 
-Se elige con `"popup": { "style": "default" }` en la [configuración](#configurar).
+Se elige con `"popup": { "style": "color" }` en la [configuración](#configurar).
 
-| `default` | `color` | `mono` |
+| `color` (por defecto) | `neutral` | `mono` |
 |---|---|---|
-| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-default-permission-dark.png"><img src="docs/img/popup-style-default-permission-light.png" width="280" alt="Estilo default, pide permiso"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-color-permission-dark.png"><img src="docs/img/popup-style-color-permission-light.png" width="280" alt="Estilo color, pide permiso: tinte naranja"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-mono-permission-dark.png"><img src="docs/img/popup-style-mono-permission-light.png" width="280" alt="Estilo mono, pide permiso: grises"></picture> |
-| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-default-done-dark.png"><img src="docs/img/popup-style-default-done-light.png" width="280" alt="Estilo default, terminó"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-color-done-dark.png"><img src="docs/img/popup-style-color-done-light.png" width="280" alt="Estilo color, terminó: tinte verde"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-mono-done-dark.png"><img src="docs/img/popup-style-mono-done-light.png" width="280" alt="Estilo mono, terminó: grises"></picture> |
-| Tarjeta neutra; solo lo que te necesita lleva el color de atención. | Un color por tipo: verde terminó, naranja permiso, azul pregunta, violeta agente. | Solo grises; lo urgente se nota por el ícono relleno, la negrita y un borde más marcado. |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-color-permission-dark.png"><img src="docs/img/popup-style-color-permission-light.png" width="280" alt="Estilo color, pide permiso: tinte naranja"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-neutral-permission-dark.png"><img src="docs/img/popup-style-neutral-permission-light.png" width="280" alt="Estilo neutral, pide permiso"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-mono-permission-dark.png"><img src="docs/img/popup-style-mono-permission-light.png" width="280" alt="Estilo mono, pide permiso: grises"></picture> |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-color-done-dark.png"><img src="docs/img/popup-style-color-done-light.png" width="280" alt="Estilo color, terminó: tinte verde"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-neutral-done-dark.png"><img src="docs/img/popup-style-neutral-done-light.png" width="280" alt="Estilo neutral, terminó"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-mono-done-dark.png"><img src="docs/img/popup-style-mono-done-light.png" width="280" alt="Estilo mono, terminó: grises"></picture> |
+| Un color por tipo: verde terminó, naranja permiso, azul pregunta, violeta agente. | Tarjeta neutra; solo lo que te necesita lleva el color de atención. | Solo grises; lo urgente se nota por el ícono relleno, la negrita y un borde más marcado. |
 
 ## 3. Mensajes largos y varios a la vez
 
@@ -202,7 +202,7 @@ las tiene todas). Los cambios se aplican desde el siguiente aviso.
 ```json
 {
   "language": "es",
-  "popup":  { "style": "default", "seconds": 60, "width": 460, "max_height_ratio": 0.6,
+  "popup":  { "style": "color", "seconds": 60, "width": 460, "max_height_ratio": 0.6,
               "compact_lines": 2, "font_size": 13, "sticky_needs_you": true, "private": false },
   "sounds": {
     "done":       { "sound": "Glass",     "volume": 0.5, "only_when_away": true, "min_turn_seconds": 15 },
@@ -218,7 +218,7 @@ las tiene todas). Los cambios se aplican desde el siguiente aviso.
 | Grupo | Clave | Qué hace |
 |---|---|---|
 | General | `language` | `auto` (sigue a macOS), `en` o `es`. |
-| Cómo se ve | `style` | `default`, `color` o `mono`. |
+| Cómo se ve | `style` | `color` (por defecto), `neutral` o `mono`. Cualquier otro valor se trata como `color`. |
 | | `width`, `font_size` | Ancho de la tarjeta (pt) y tamaño de letra. |
 | | `max_height_ratio` | Fracción del alto de la pantalla antes de que haya scroll. |
 | | `compact_lines` | Líneas que conservan los avisos anteriores de la pila. |

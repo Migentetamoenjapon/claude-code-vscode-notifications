@@ -55,13 +55,13 @@ func safeName(_ s: String) -> String {
 
 // MARK: - Localization
 
-/// popup.style from config.json: "default", "color" or "mono". Mono means grayscale only.
+/// popup.style from config.json: "color" (the default), "neutral" or "mono". Mono means grayscale only.
 func configStyle() -> String {
     if let data = FileManager.default.contents(atPath: ccHome + "/config.json"),
        let o = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
        let popup = o["popup"] as? [String: Any],
        let style = popup["style"] as? String { return style.lowercased() }
-    return "default"
+    return "color"
 }
 
 struct Strings {

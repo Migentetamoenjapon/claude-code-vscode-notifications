@@ -37,7 +37,7 @@ session, and a menu bar icon tracks all your sessions. Local only, built on Clau
 | | Feature | In one line |
 |---|---|---|
 | 1 | **Popups** | Claude's last message, rendered as Markdown, when it finishes, asks permission, asks a question, or an agent needs you. |
-| 2 | **Styles** | `default`, `color` (one hue per kind) or `mono` (grayscale). |
+| 2 | **Styles** | `color` (one hue per kind, the default), `neutral` or `mono` (grayscale). |
 | 3 | **Long messages and stacking** | Long messages scroll; older popups shrink to two lines. |
 | 4 | **Jump to the terminal** | Click → the right VS Code window and the exact integrated terminal. |
 | 5 | **Menu bar** | Every session at a glance: needs you · wrote to you · thinking. |
@@ -52,28 +52,28 @@ session, and a menu bar icon tracks all your sessions. Local only, built on Clau
 
 ## 1. Popups
 
-A translucent card at the top-right of your screen. Each kind of message has its own icon and label. The ones that
-**need you** (permission, question, agent) are tinted, have a thin full border, and **stay until you answer**.
+A translucent card at the top-right of your screen. Each kind of message has its own icon, label and hue. The ones that
+**need you** (permission, question, agent) get a stronger border and **stay until you answer**.
 "Done" fades after 60 s (paused while you hover or are away).
 
 | Done | Needs permission |
 |---|---|
-| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-default-done-dark.png"><img src="docs/img/popup-style-default-done-light.png" width="400" alt="Done popup with a heading, a table and a list"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-default-permission-dark.png"><img src="docs/img/popup-style-default-permission-light.png" width="400" alt="Popup asking permission to run a Bash command"></picture> |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-color-done-dark.png"><img src="docs/img/popup-style-color-done-light.png" width="400" alt="Done popup with a heading, a table and a list"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-color-permission-dark.png"><img src="docs/img/popup-style-color-permission-light.png" width="400" alt="Popup asking permission to run a Bash command"></picture> |
 | **Question** | **A background agent asks** |
-| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-default-question-dark.png"><img src="docs/img/popup-style-default-question-light.png" width="400" alt="Popup where Claude asks which database to use"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-default-agent-dark.png"><img src="docs/img/popup-style-default-agent-light.png" width="400" alt="Popup where a reviewer agent asks for a decision"></picture> |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-color-question-dark.png"><img src="docs/img/popup-style-color-question-light.png" width="400" alt="Popup where Claude asks which database to use"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-color-agent-dark.png"><img src="docs/img/popup-style-color-agent-light.png" width="400" alt="Popup where a reviewer agent asks for a decision"></picture> |
 
 Renders headings, **bold**, *italics*, `code`, code blocks, lists, quotes and real tables with aligned columns.
 Images here follow your GitHub light/dark theme; the popup follows macOS.
 
 ## 2. Styles
 
-Choose with `"popup": { "style": "default" }` in the [config](#configure).
+Choose with `"popup": { "style": "color" }` in the [config](#configure).
 
-| `default` | `color` | `mono` |
+| `color` (default) | `neutral` | `mono` |
 |---|---|---|
-| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-default-permission-dark.png"><img src="docs/img/popup-style-default-permission-light.png" width="280" alt="Default style, permission"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-color-permission-dark.png"><img src="docs/img/popup-style-color-permission-light.png" width="280" alt="Color style, permission: orange tint"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-mono-permission-dark.png"><img src="docs/img/popup-style-mono-permission-light.png" width="280" alt="Mono style, permission: grayscale"></picture> |
-| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-default-done-dark.png"><img src="docs/img/popup-style-default-done-light.png" width="280" alt="Default style, done"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-color-done-dark.png"><img src="docs/img/popup-style-color-done-light.png" width="280" alt="Color style, done: green tint"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-mono-done-dark.png"><img src="docs/img/popup-style-mono-done-light.png" width="280" alt="Mono style, done: grayscale"></picture> |
-| Neutral card; only messages that need you get the attention color. | One hue per kind: green done, orange permission, blue question, violet agent. | Grayscale only; urgency shows through a filled icon, bold label and stronger border. |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-color-permission-dark.png"><img src="docs/img/popup-style-color-permission-light.png" width="280" alt="Color style, permission: orange tint"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-neutral-permission-dark.png"><img src="docs/img/popup-style-neutral-permission-light.png" width="280" alt="Neutral style, permission"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-mono-permission-dark.png"><img src="docs/img/popup-style-mono-permission-light.png" width="280" alt="Mono style, permission: grayscale"></picture> |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-color-done-dark.png"><img src="docs/img/popup-style-color-done-light.png" width="280" alt="Color style, done: green tint"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-neutral-done-dark.png"><img src="docs/img/popup-style-neutral-done-light.png" width="280" alt="Neutral style, done"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-style-mono-done-dark.png"><img src="docs/img/popup-style-mono-done-light.png" width="280" alt="Mono style, done: grayscale"></picture> |
+| One hue per kind: green done, orange permission, blue question, violet agent. | Neutral card; only messages that need you get the attention color. | Grayscale only; urgency shows through a filled icon, bold label and stronger border. |
 
 ## 3. Long messages and several at once
 
@@ -201,7 +201,7 @@ all). Changes apply from the next notification.
 ```json
 {
   "language": "auto",
-  "popup":  { "style": "default", "seconds": 60, "width": 460, "max_height_ratio": 0.6,
+  "popup":  { "style": "color", "seconds": 60, "width": 460, "max_height_ratio": 0.6,
               "compact_lines": 2, "font_size": 13, "sticky_needs_you": true, "private": false },
   "sounds": {
     "done":       { "sound": "Glass",     "volume": 0.5, "only_when_away": true, "min_turn_seconds": 15 },
@@ -217,7 +217,7 @@ all). Changes apply from the next notification.
 | Group | Key | What it does |
 |---|---|---|
 | General | `language` | `auto` (follows macOS), `en` or `es`. |
-| Popup look | `style` | `default`, `color` or `mono`. |
+| Popup look | `style` | `color` (default), `neutral` or `mono`. Anything else falls back to `color`. |
 | | `width`, `font_size` | Card width (pt) and text size. |
 | | `max_height_ratio` | Fraction of the screen height before the text scrolls. |
 | | `compact_lines` | Lines kept by older popups in the stack. |

@@ -27,10 +27,10 @@ render_card() {
     CCNOTIFY_CAPTURE_BACKDROP="$backdrop" "$BIN" "$json"
 }
 
-# render <name> <theme> [compact]: default-style sample -> popup-<name>-<theme>.png
+# render <name> <theme> [compact]: sample in the default (color) style -> popup-<name>-<theme>.png
 render() {
   local name="$1" theme="$2" compact="${3:-0}"
-  render_card "$name" "$OUT/popup-$name-$theme.png" "$theme" "$compact" default 1
+  render_card "$name" "$OUT/popup-$name-$theme.png" "$theme" "$compact" color 1
   echo "rendered: popup-$name-$theme.png"
 }
 
@@ -44,9 +44,9 @@ render_style() {
 # render_stack <theme>: one open needs-you popup on top and two compact older ones below, 8 pt apart
 render_stack() {
   local theme="$1"
-  render_card permission "$WORK/stack-1.png" "$theme" 0 default 0
-  render_card compact "$WORK/stack-2.png" "$theme" 1 default 0
-  render_card compact2 "$WORK/stack-3.png" "$theme" 1 default 0
+  render_card permission "$WORK/stack-1.png" "$theme" 0 color 0
+  render_card compact "$WORK/stack-2.png" "$theme" 1 color 0
+  render_card compact2 "$WORK/stack-3.png" "$theme" 1 color 0
   CCNOTIFY_COMPOSE="$OUT/popup-stack-$theme.png" CCNOTIFY_THEME="$theme" \
     CCNOTIFY_COMPOSE_INPUTS="$WORK/stack-1.png:$WORK/stack-2.png:$WORK/stack-3.png" "$BIN"
   echo "rendered: popup-stack-$theme.png"
@@ -115,7 +115,7 @@ for theme in light dark; do
     render "$name" "$theme"
   done
   render compact "$theme" 1
-  for style in default color mono; do
+  for style in color neutral mono; do
     render_style "$style" done table "$theme"
     render_style "$style" permission permission "$theme"
     render_style "$style" question question "$theme"

@@ -9,8 +9,8 @@
 # run flashes the menu for about a second. All sessions below are fictional.
 #
 # Files written (light and dark of each):
-#   menubar-<theme>.png       English, default style
-#   menubar-es-<theme>.png    Spanish, default style
+#   menubar-<theme>.png       English, color style (the default; neutral looks the same in the menu bar)
+#   menubar-es-<theme>.png    Spanish, color style
 #   menubar-mono-<theme>.png  English, popup.style = mono
 #
 # Usage: tests/render/render_menubar.sh [out-dir]     (default: docs/img)
@@ -76,8 +76,8 @@ render() {
 }
 
 for theme in light dark; do
-  render "menubar-$theme.png" "$theme" en default
-  render "menubar-es-$theme.png" "$theme" es default
+  render "menubar-$theme.png" "$theme" en color
+  render "menubar-es-$theme.png" "$theme" es color
   render "menubar-mono-$theme.png" "$theme" en mono
 done
 

@@ -514,6 +514,26 @@ class SessionStateEvents(HookTestCase):
         self.assertEqual(self.session("sess-stop-0004")["project"], "Home")
 
 
+class PopupStyle(HookTestCase):
+    def style_of(self, config):
+        self.hook(config).handle("notification", payload("payload_permission.json"))
+        (popup,) = self.queued()
+        for name in os.listdir(os.path.join(self.home, "state", "queue")):  # empty the queue for the next call
+            os.remove(os.path.join(self.home, "state", "queue", name))
+        return popup["style"]
+
+    def test_default_config_is_color(self):
+        self.assertEqual(self.style_of({"language": "en"}), "color")
+
+    def test_neutral_and_mono_pass_through(self):
+        self.assertEqual(self.style_of({"language": "en", "popup": {"style": "neutral"}}), "neutral")
+        self.assertEqual(self.style_of({"language": "en", "popup": {"style": "mono"}}), "mono")
+
+    def test_unknown_values_fall_back_to_color(self):
+        for value in ("default", "nonsense", "", None, 3, ["mono"]):
+            self.assertEqual(self.style_of({"language": "en", "popup": {"style": value}}), "color", repr(value))
+
+
 class Housekeeping(HookTestCase):
     def test_old_queue_files_are_deleted(self):
         paths = notify.Paths(self.home)
