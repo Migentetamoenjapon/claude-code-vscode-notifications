@@ -62,24 +62,28 @@ function activate(context) {
     const job = String(request.job);
     const known = jobTerminals.get(job);
     if (known && known.exitStatus === undefined && vscode.window.terminals.includes(known)) return known;
+    // After a window reload the map is empty, but the terminal we created is still there under its name.
     const tag = `(${job})`;
-    const byName = vscode.window.terminals.find(
-      (t) => t.name.endsWith(tag) && t.exitStatus === undefined && t.creationOptions &&
-             t.creationOptions.shellArgs && String(t.creationOptions.shellArgs).includes(job));
+    const byName = vscode.window.terminals.find((t) => t.name.endsWith(tag) && t.exitStatus === undefined);
     if (byName) {
       jobTerminals.set(job, byName);
       return byName;
     }
     const cwd = request.cwd && fs.existsSync(String(request.cwd)) ? String(request.cwd) : undefined;
     const project = request.cwd ? path.basename(String(request.cwd)) : "Claude";
-    const claude = typeof request.claude === "string" && request.claude ? request.claude : "claude";
-    const terminal = vscode.window.createTerminal({
-      name: `${project} ${tag}`,
-      shellPath: claude,
-      shellArgs: ["attach", job],
-      cwd,
-      iconPath: new vscode.ThemeIcon("comment-discussion"),
-    });
+    const name = `${project} ${tag}`;
+    const iconPath = new vscode.ThemeIcon("comment-discussion");
+    const claude = typeof request.claude === "string" ? request.claude : "";
+    let terminal;
+    if (claude && path.isAbsolute(claude) && fs.existsSync(claude)) {
+      // The terminal runs `claude attach` itself: it closes when you leave the session.
+      terminal = vscode.window.createTerminal({ name, shellPath: claude, shellArgs: ["attach", job], cwd, iconPath });
+    } else {
+      // claude is not in a known place: let the user's own shell (with its full PATH) find it.
+      // The text goes to this new terminal only, and `job` matched JOB_ID, so it is a plain word.
+      terminal = vscode.window.createTerminal({ name, cwd, iconPath });
+      terminal.sendText(`claude attach ${job}`, true);
+    }
     jobTerminals.set(job, terminal);
     return terminal;
   }

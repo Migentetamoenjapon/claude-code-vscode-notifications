@@ -176,6 +176,29 @@ class ConfigAndHelpers(unittest.TestCase):
         table[200] = {"ppid": 100, "comm": "bun", "args": "bun run /x/claude/cli.js"}
         self.assertEqual(notify.find_claude_pid(FakeRun(table), start_pid=300), 200)
 
+    def test_find_claude_pid_background_sessions_use_their_own_process(self):
+        # Background sessions hang from one shared daemon. The hook must report the session's own process
+        # (which renames itself, or is the versioned native binary), never the daemon.
+        daemon = {"ppid": 50, "comm": "/Users/you/.local/bin/claude", "args": "claude daemon run"}
+        table = {
+            300: {"ppid": 250, "comm": "/bin/sh", "args": "sh -c notify.sh stop"},
+            250: {"ppid": 240, "comm": "claude bg-spare", "args": "claude bg-spare --bg-spare /tmp/x.sock"},
+            240: {"ppid": 200, "comm": "claude bg-pty-host", "args": "claude bg-pty-host /tmp/x.sock"},
+            200: daemon,
+        }
+        self.assertEqual(notify.find_claude_pid(FakeRun(table), start_pid=300), 250)
+        table[250] = {"ppid": 240, "comm": "/Users/you/.local/share/claude/versions/2.1.0",
+                      "args": "/Users/you/.local/share/claude/versions/2.1.0 --session-id abc"}
+        self.assertEqual(notify.find_claude_pid(FakeRun(table), start_pid=300), 250)
+
+    def test_is_claude_process(self):
+        self.assertTrue(notify.is_claude_process("claude"))
+        self.assertTrue(notify.is_claude_process("claude bg-spare"))
+        self.assertTrue(notify.is_claude_process("/Users/you/.local/share/claude/versions/2.1.0"))
+        self.assertFalse(notify.is_claude_process("/usr/local/bin/claude-helper"))
+        self.assertFalse(notify.is_claude_process("/bin/zsh"))
+        self.assertFalse(notify.is_claude_process("/usr/local/bin/node", "node /x/other-tool.js"))
+
 
 class StopEvent(HookTestCase):
     def test_done_popup_content(self):
@@ -382,6 +405,27 @@ class SessionStateEvents(HookTestCase):
         names = sorted(n for n in os.listdir(os.path.join(self.home, "state", "sessions")) if n.endswith(".json"))
         self.assertEqual(names, ["new-session.json"])
         self.assertEqual(self.session("new-session")["focus"]["pid"], 4242)
+
+    def test_background_jobs_sharing_a_process_do_not_wipe_each_other(self):
+        # Two background sessions reported under the same pid: starting one must not remove the other.
+        a = self.hook({"language": "en"}, env={"CLAUDE_JOB_DIR": "/Users/you/.claude/jobs/aaaa1111"})
+        a._pid = 4242
+        a.handle("session-start", payload("payload_stop.json", session_id="job-a"))
+        b = self.hook(now=NOW + 1, env={"CLAUDE_JOB_DIR": "/Users/you/.claude/jobs/bbbb2222"})
+        b._pid = 4242
+        b.handle("session-start", payload("payload_stop.json", session_id="job-b"))
+        names = sorted(n for n in os.listdir(os.path.join(self.home, "state", "sessions")) if n.endswith(".json"))
+        self.assertEqual(names, ["job-a.json", "job-b.json"])
+        self.assertEqual(self.session("job-b")["focus"]["job"], "bbbb2222")
+
+    def test_new_session_and_interrupted_turn_are_not_unread(self):
+        self.hook({"language": "en"}).handle("session-start", payload("payload_stop.json"))
+        seen = os.path.join(self.home, "state", "seen", "sess-stop-0004")
+        self.assertTrue(os.path.exists(seen))
+        os.remove(seen)
+        self.hook(now=NOW + 5).handle(
+            "stop", payload("payload_stop.json", transcript_path=fixture("transcript_interrupted.jsonl")))
+        self.assertTrue(os.path.exists(seen))
 
     def test_other_process_sessions_survive(self):
         a = self.hook({"language": "en"})

@@ -307,6 +307,7 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
             var change: Override?
             for line in data[data.startIndex...last].split(separator: 0x0A) {
                 guard let e = (try? JSONSerialization.jsonObject(with: Data(line))) as? [String: Any] else { continue }
+                if e["isSidechain"] as? Bool == true { continue }   // a subagent's lines, not the conversation
                 // Only what happened after the last state change (do not override a fresh "done")
                 if let ts = e["timestamp"] as? String, let when = isoFractional.date(from: ts),
                    when.timeIntervalSince1970 < s.since { continue }

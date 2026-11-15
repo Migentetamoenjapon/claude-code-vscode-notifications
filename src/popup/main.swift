@@ -11,7 +11,7 @@
 //   * "done" popups close by themselves after `seconds` (the timer also pauses while you are idle).
 //     "Needs you" kinds (permission, question, agent) are sticky: they close when the conversation
 //     moves on, on click, or on X.
-//   * Stacking: newest on top and fully open; older ones collapse to 3 lines (expand on hover).
+//   * Stacking: newest on top and fully open; older ones collapse to `compact_lines` (expand on hover).
 //     Each popup registers itself in state/active/<id>__<pid>.
 //   * Test hooks: CCNOTIFY_CAPTURE=<file.png>, CCNOTIFY_THEME=light|dark, CCNOTIFY_COMPACT=1.
 import Cocoa
@@ -813,7 +813,9 @@ final class Popup: NSObject, NSApplicationDelegate {
     var transcriptBase: UInt64?
     var closing = false
 
-    var timed: Bool { !(d.kind.needsYou && d.stickyNeedsYou) }
+    /// A sticky "needs you" popup turns into a timed one once a tool result shows up after it.
+    var answered = false
+    var timed: Bool { answered || !(d.kind.needsYou && d.stickyNeedsYou) }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         switch env["CCNOTIFY_THEME"] {
@@ -881,7 +883,7 @@ final class Popup: NSObject, NSApplicationDelegate {
         timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in self?.tick() }
 
         if let path = captureTarget {
-            // CCNOTIFY_COMPACT=1: the 3-line version (how older stacked popups look)
+            // CCNOTIFY_COMPACT=1: the compact version (how older stacked popups look)
             if compactTest { isTop = false; expand(false, animated: false) }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
                 self?.capture(to: path)
@@ -1210,11 +1212,22 @@ final class Popup: NSObject, NSApplicationDelegate {
             if d.eventAt > 0, let ts = e["timestamp"] as? String, let when = parseISO(ts), when < d.eventAt - 0.5 {
                 continue
             }
+            if e["isSidechain"] as? Bool == true { continue }   // a subagent's lines, not the conversation
             let type = e["type"] as? String
             if type == "assistant" { return true }
             if type == "user" {
                 if !d.kind.needsYou { return true }
-                if (e["message"] as? [String: Any])?["content"] is String { return true }
+                let content = (e["message"] as? [String: Any])?["content"]
+                if content is String { return true }
+                if let blocks = content as? [[String: Any]] {
+                    if blocks.contains(where: { $0["type"] as? String == "tool_result" }) {
+                        // Probably the answer to this request (you approved and the tool ran), but it
+                        // could be another tool running in parallel: do not close, start the countdown.
+                        answered = true
+                    } else {
+                        return true   // you typed something (text or an image)
+                    }
+                }
             }
         }
         return false

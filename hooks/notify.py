@@ -337,20 +337,36 @@ def _ps_field(run, pid, field):
     return out.strip()
 
 
-def find_claude_pid(run=subprocess.run, start_pid=None, max_depth=10):
-    """PID of the Claude Code process running this hook, or 0.
+def is_claude_process(comm, args=""):
+    """Does this `ps` comm (and args) look like a Claude Code process?
 
-    Walks up the parents. Matches an executable named `claude`, or `node`/`bun` whose command line mentions
-    claude (npm installs run Claude Code under node).
+    - an executable named `claude`;
+    - a process that renamed itself, e.g. "claude bg-spare" (background sessions do);
+    - the native install's versioned binary, e.g. ~/.local/share/claude/versions/2.1.0;
+    - `node`/`bun` whose command line mentions claude (npm installs run Claude Code under node).
+    """
+    base = os.path.basename(comm)
+    if base.split(" ", 1)[0] == "claude":
+        return True
+    if "/claude/versions/" in comm:
+        return True
+    return base in ("node", "bun") and "claude" in args.lower()
+
+
+def find_claude_pid(run=subprocess.run, start_pid=None, max_depth=10):
+    """PID of the Claude Code process running this hook (the session's own process), or 0.
+
+    Walks up the parents and returns the first one that is Claude Code. It must be the session's own
+    process, not a shared ancestor: background sessions all hang from one daemon, and taking the daemon
+    would make every session look like the same process.
     """
     pid = os.getppid() if start_pid is None else start_pid
     for _ in range(max_depth):
         if pid <= 1:
             return 0
-        base = os.path.basename(_ps_field(run, pid, "comm"))
-        if base == "claude":
-            return pid
-        if base in ("node", "bun") and "claude" in _ps_field(run, pid, "args").lower():
+        comm = _ps_field(run, pid, "comm")
+        base = os.path.basename(comm)
+        if is_claude_process(comm, _ps_field(run, pid, "args") if base in ("node", "bun") else ""):
             return pid
         try:
             pid = int(_ps_field(run, pid, "ppid"))
@@ -410,14 +426,20 @@ def remove_session(paths, sid, event_at):
         atomic_write(os.path.join(paths.ended, safe_name(sid)), json.dumps({"at": event_at}))
 
 
-def drop_sessions_of_pid(paths, pid, keep_sid):
-    """/clear starts a new session inside the same Claude process: the previous one goes away."""
+def drop_sessions_of_pid(paths, pid, keep_sid, job=""):
+    """/clear starts a new session inside the same Claude process: the previous one goes away.
+
+    Only sessions of the same background job (or, for a normal session, of no job) are dropped, so a
+    process shared by several sessions can never wipe its siblings.
+    """
     with sessions_lock(paths):
         for name in os.listdir(paths.sessions):
             if not name.endswith(".json"):
                 continue
             data = read_json(os.path.join(paths.sessions, name))
-            if data.get("pid") == pid and data.get("session") != keep_sid:
+            focus = data.get("focus")
+            other_job = focus.get("job", "") if isinstance(focus, dict) else ""
+            if data.get("pid") == pid and data.get("session") != keep_sid and other_job == job:
                 with contextlib.suppress(OSError):
                     os.remove(os.path.join(paths.sessions, name))
 
@@ -548,10 +570,11 @@ class Hook(object):
 
         if event == "session-start":
             if pid:
-                drop_sessions_of_pid(paths, pid, sid)
+                drop_sessions_of_pid(paths, pid, sid, focus.get("job", ""))
             if not os.path.exists(session_path(paths, sid)):
                 write_session(paths, sid, dict(base, state="wrote", since=self.now, tasks=0,
                                                summary=tr(self.lang, "new_session"), request=""), self.now)
+                mark_seen(paths, sid, self.now)  # a brand-new session has nothing unread
             return self.record(project, sid, event, "registered")
 
         if event == "prompt":
@@ -621,6 +644,7 @@ class Hook(object):
         if not written:
             return self.record(project, sid, "stop", "superseded")
         if transcript_path and transcript_parser.was_interrupted(transcript_path):
+            mark_seen(self.paths, sid, self.now)  # you stopped it yourself: nothing unread
             return self.record(project, sid, "stop", "interrupted, no popup")
         text = text.strip() or tr(self.lang, "done_fallback")
         return self.show("done", project, text, project, sid, base, "stop",

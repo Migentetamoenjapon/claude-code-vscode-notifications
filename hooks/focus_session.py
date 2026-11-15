@@ -77,13 +77,16 @@ JOB_ID = re.compile(r"^[A-Za-z0-9_-]{4,40}$")
 
 
 def claude_path(env=None):
-    """Where the `claude` command lives (popups run with a minimal PATH, so look in the usual places)."""
+    """Absolute path of the `claude` command, or "" when it is not in a known place.
+
+    Popups run with a minimal PATH, so the usual install locations are checked too. With "", the editor
+    extension starts `claude attach` through the user's own shell instead, which has the full PATH."""
     env = os.environ if env is None else env
     for candidate in (shutil.which("claude", path=env.get("PATH")), os.path.expanduser("~/.local/bin/claude"),
                       "/opt/homebrew/bin/claude", "/usr/local/bin/claude"):
-        if candidate and os.access(candidate, os.X_OK):
+        if candidate and os.path.isabs(candidate) and os.access(candidate, os.X_OK):
             return candidate
-    return "claude"
+    return ""
 
 
 def request_terminal(home, pid, run=subprocess.run, now=None, job="", cwd="", env=None):

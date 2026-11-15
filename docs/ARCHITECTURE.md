@@ -35,7 +35,7 @@ Nothing leaves the machine. No telemetry. No network calls except the optional m
 | Popup queue | `state/queue/<uuid>.json` (popup deletes the file after reading it) |
 | Active popups (stacking) | `state/active/<session-short-id>__<pid>` containing `"<created-epoch> <height>"` |
 | Session states (menu bar) | `state/sessions/<session-id>.json` |
-| Focus request | `state/focus-request.json` → `{"at": <epoch seconds>, "pids": [<claude pid>, <its parents>...]}` |
+| Focus request | `state/focus-request.json` → `{"at": <epoch seconds>, "pids": [<claude pid>, <its parents>...]}`; for a background session also `"job"`, `"cwd"` and `"claude"` (path of the command, or `""`) |
 | Decision log (no message text) | `state/ccnotify.log` (rotated at 1 MB) |
 | Statusline | `~/.claude/ccnotify/statusline/statusline.py` |
 | Statusline cache | `~/.claude/ccnotify/state/statusline/` |
@@ -91,10 +91,13 @@ stripe on one side of the card).
 
 ```json
 {
-  "title": "my-project", "kind": "done", "text": "markdown…", "action": "/usr/bin/python3 …/focus_session.py …",
-  "id": "abc123def456", "session": "<full session id>", "host": "com.microsoft.VSCode", "transcript": "/path/x.jsonl",
+  "title": "my-project", "kind": "done", "text": "markdown…",
+  "id": "abc123def456", "session": "<full session id>", "host": "com.microsoft.VSCode",
+  "focus": {"host": "com.microsoft.VSCode", "cwd": "/path", "pid": 1234, "job": "<background id, optional>"},
+  "transcript": "/path/x.jsonl", "transcript_size": 123456, "event_at": <epoch>,
   "language": "en", "sound": "Glass", "volume": 0.5, "only_when_away": true,
-  "seconds": 60, "width": 460, "max_height_ratio": 0.8, "max_stacked": 4
+  "seconds": 60, "width": 460, "max_height_ratio": 0.6, "max_stacked": 4, "compact_lines": 2,
+  "sticky_needs_you": true, "font_size": 13, "private": false, "style": "default"
 }
 ```
 
@@ -106,12 +109,16 @@ The popup must work with only `title`, `kind`, `text` (everything else has defau
 ```json
 {
   "session": "<full id>", "project": "my-project", "cwd": "/path", "transcript": "/path/x.jsonl",
-  "action": "<shell command to jump to it>", "pid": 1234,
-  "state": "thinking" | "needs" | "wrote", "seen": false, "since": <epoch>,
+  "host": "com.microsoft.VSCode", "focus": {"host": "…", "cwd": "/path", "pid": 1234, "job": "<optional>"},
+  "pid": 1234, "state": "thinking" | "needs" | "wrote", "since": <epoch>, "updated_at": <epoch>,
   "summary": "one-line summary", "request": "user's last prompt (short)", "tasks": 0,
-  "done_text": "…", "done_at": <epoch>
+  "turn_started_at": <epoch>, "done_text": "…", "done_at": <epoch>
 }
 ```
+
+`pid` is the session's own Claude Code process (not a shared ancestor): the menu bar drops a session when that
+process is gone. "Seen" is not stored here: a session is seen when `state/seen/<id>` holds an epoch >= `since`.
+`state/ended/<id>` is a tombstone written by `SessionEnd` so a late async hook cannot bring the session back.
 
 ## Supported editors
 
@@ -131,7 +138,7 @@ brought to the front.
 
 - `CCNOTIFY_CAPTURE=<file.png>`: popup renders, saves a PNG of itself (`cacheDisplay`, without blur) and quits.
 - `CCNOTIFY_THEME=light|dark`: force appearance.
-- `CCNOTIFY_COMPACT=1`: render the compact (3-line) version and don't re-stack.
+- `CCNOTIFY_COMPACT=1`: render the compact version (`compact_lines`) and don't re-stack.
 
 ## Requirements
 
@@ -205,6 +212,11 @@ These refine everything above. When in doubt, this section wins.
   `com.todesktop.230313mzl4w4u92`, `windsurf` → `com.exafunction.windsurf`), and raise its window with
   `open -b <that id> <workspaceFile or first folder>`.
 - Ignore requests older than 10 s; poll `state/focus-request.json` every 300 ms with `fs.watchFile`.
+- Background sessions (`claude --bg`) have no terminal of their own. For a request with `job`, the window that owns
+  the main session's terminal opens (or reuses) a terminal running `claude attach <job>`; it never types into the
+  main session's terminal.
+- Sticky "needs you" popups start their countdown once a tool result appears in the transcript after them (you
+  answered); they close at once when Claude writes again or you type.
 
 ### Install
 - `install.sh` (idempotent): checks macOS ≥ 12, `swiftc`, `python3`; copies to `$CCNOTIFY_HOME`; builds both apps

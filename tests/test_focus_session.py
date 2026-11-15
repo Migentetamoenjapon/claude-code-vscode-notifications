@@ -127,7 +127,7 @@ class FocusSession(unittest.TestCase):
             request = json.load(f)
         self.assertEqual(request["job"], "a3b56e59")
         self.assertEqual(request["cwd"], "/Users/you/my-project")
-        self.assertTrue(request["claude"])
+        self.assertIn("claude", request)  # absolute path, or "" when claude is not in a known place
 
     def test_invalid_job_id_is_ignored(self):
         self.write_storage("Code", storage(["/Users/you/my-project"]))
