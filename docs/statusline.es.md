@@ -10,6 +10,10 @@ Es opcional. La ventanita y la barra de menú funcionan sin ella.
 
 ## Línea de ejemplo
 
+<img src="img/statusline-real.png" width="760" alt="Línea de estado real en una terminal de VS Code">
+
+*Una de verdad, con el ticker encendido. En texto:*
+
 ```
 my-project  Sonnet high │ ctx 52% │ sesión ~1.2% ~$0.28 45k │ 5h 12% ↻3:00pm │ sem 45% $10.38/$23 │ ABC 101.50 +0.42% 3:58pm
 ```

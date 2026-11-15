@@ -113,9 +113,9 @@ En el estilo `mono` el ícono queda gris y el estado se nota por su forma.
 
 ## 7. Línea de estado (opcional)
 
-```
-my-project  Sonnet high │ ctx 52% │ sesión ~1.2% ~$0.28 45k │ 5h 12% ↻3:00pm │ sem 45% $10.38/$23
-```
+<p><img src="docs/img/statusline-real.png" width="760" alt="Línea de estado real en una terminal de VS Code: proyecto, modelo, contexto 61 %, sesión, límite de 5 horas, semana y un ticker de mercado"></p>
+
+*Una de verdad, con el ticker opcional encendido.*
 
 Una línea gris al pie de Claude Code: proyecto · modelo · contexto · esta sesión · límites de 5 horas y de la semana.
 El color aparece solo arriba del 40 %. Los dólares aparecen solo si pones el precio de tu plan; el ticker de mercado

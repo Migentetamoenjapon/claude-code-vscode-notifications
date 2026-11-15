@@ -10,6 +10,10 @@ It is optional. The popup and the menu bar work without it.
 
 ## Sample line
 
+<img src="img/statusline-real.png" width="760" alt="Real status line in a VS Code terminal">
+
+*A real one (Spanish labels, ticker on). The same in English:*
+
 ```
 my-project  Sonnet high │ ctx 52% │ session ~1.2% ~$0.28 45k │ 5h 12% ↻3:00pm │ wk 45% $10.38/$23 │ ABC 101.50 +0.42% 3:58pm
 ```

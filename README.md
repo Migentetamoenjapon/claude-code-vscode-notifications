@@ -113,6 +113,10 @@ In `mono` style the icon stays gray and the state is shown by its shape.
 
 ## 7. Status line (optional)
 
+<p><img src="docs/img/statusline-real.png" width="760" alt="Real status line in a VS Code terminal: project, model, context 61 %, session, 5-hour limit, weekly limit and a market ticker"></p>
+
+*A real one, with Spanish labels (`sesión`, `sem`) and the optional ticker turned on. In English it reads:*
+
 ```
 my-project  Sonnet high │ ctx 52% │ session ~1.2% ~$0.28 45k │ 5h 12% ↻3:00pm │ wk 45% $10.38/$23
 ```
