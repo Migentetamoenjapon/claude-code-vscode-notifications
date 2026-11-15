@@ -7,8 +7,11 @@
 // process and its parents. The window that owns a terminal whose shell is in that list handles it:
 //   - Normal session: shows that terminal (opens the panel if it was closed and gives it focus).
 //   - Background session ("job", started with `claude --bg`): it has no terminal of its own (it is a child of
-//     the main session), so the window opens or reuses a terminal that runs `claude attach <job>` directly
-//     and shows it. It never types into the main session's terminal.
+//     the main session), so the window shows the terminal that is running `claude attach <job>` right now or,
+//     if there is none, opens a new one that runs it. It never types into the main session's terminal.
+//     A terminal is never reused by its name: pressing ← inside `claude attach` turns it into the agent view,
+//     where you can open any other conversation, while the tab keeps its old name. So every click asks `ps`
+//     what each terminal is running. Terminals that moved on are left alone: you may be using them.
 //   - In both cases it raises its own window by asking macOS to open its own workspace/folder with its own
 //     editor app (if the window already has it, the editor just focuses it: no new window).
 // Requests older than 10 s are ignored, so opening the editor never jumps to a stale terminal.
@@ -36,9 +39,36 @@ function requestFiles() {
   return Array.from(new Set(homes)).map((home) => path.join(home, "state", "focus-request.json"));
 }
 
+/** pid -> {ppid, command} of every process right now (empty if `ps` fails). */
+function processTable() {
+  return new Promise((resolve) => {
+    execFile("/bin/ps", ["-axww", "-o", "pid=,ppid=,command="], { timeout: 3000, maxBuffer: 8 * 1024 * 1024 },
+      (error, stdout) => {
+        const table = new Map();
+        if (!error) {
+          for (const line of String(stdout).split("\n")) {
+            const match = /^\s*(\d+)\s+(\d+)\s+(.*)$/.exec(line);
+            if (match) table.set(Number(match[1]), { ppid: Number(match[2]), command: match[3].trim() });
+          }
+        }
+        resolve(table);
+      });
+  });
+}
+
+/** Is this terminal (its own process, or a command started from its shell) running `claude attach <job>` now? */
+function isAttachedTo(table, pid, job) {
+  const attached = new RegExp(`(^|\\s)attach\\s+${job}$`); // `job` matched JOB_ID: no regex metacharacters
+  const own = table.get(pid);
+  if (own && attached.test(own.command)) return true;
+  for (const entry of table.values()) {
+    if (entry.ppid === pid && attached.test(entry.command)) return true;
+  }
+  return false;
+}
+
 function activate(context) {
   const bundleId = BUNDLE_IDS[vscode.env.uriScheme];
-  const jobTerminals = new Map(); // job id -> terminal running `claude attach <job>`
   let handled = 0;
 
   function ownWindowTarget() {
@@ -57,18 +87,16 @@ function activate(context) {
     }
   }
 
-  /** A live terminal already attached to the job, or a new one running `claude attach <job>`. */
-  function terminalForJob(request) {
+  /** The terminal that is attached to the job right now, or a new one running `claude attach <job>`. */
+  async function terminalForJob(request) {
     const job = String(request.job);
-    const known = jobTerminals.get(job);
-    if (known && known.exitStatus === undefined && vscode.window.terminals.includes(known)) return known;
-    // After a window reload the map is empty, but the terminal we created is still there under its name.
-    const tag = `(${job})`;
-    const byName = vscode.window.terminals.find((t) => t.name.endsWith(tag) && t.exitStatus === undefined);
-    if (byName) {
-      jobTerminals.set(job, byName);
-      return byName;
+    const table = await processTable();
+    for (const candidate of vscode.window.terminals) {
+      if (candidate.exitStatus !== undefined) continue;
+      const pid = await processIdOf(candidate);
+      if (pid && isAttachedTo(table, pid, job)) return candidate;
     }
+    const tag = `(${job})`;
     const cwd = request.cwd && fs.existsSync(String(request.cwd)) ? String(request.cwd) : undefined;
     const project = request.cwd ? path.basename(String(request.cwd)) : "Claude";
     const name = `${project} ${tag}`;
@@ -84,7 +112,6 @@ function activate(context) {
       terminal = vscode.window.createTerminal({ name, cwd, iconPath });
       terminal.sendText(`claude attach ${job}`, true);
     }
-    jobTerminals.set(job, terminal);
     return terminal;
   }
 
@@ -109,7 +136,7 @@ function activate(context) {
     }
     if (!owner) return; // the session doesn't run in this window: another copy of the extension handles it
     if (request.job && JOB_ID.test(String(request.job))) {
-      terminalForJob(request).show(false);
+      (await terminalForJob(request)).show(false);
     } else {
       owner.show(false);
     }
@@ -124,11 +151,8 @@ function activate(context) {
     fs.watchFile(file, { interval: 300 }, () => { check(file); });
     context.subscriptions.push({ dispose: () => fs.unwatchFile(file) });
   }
-  context.subscriptions.push(vscode.window.onDidCloseTerminal((t) => {
-    for (const [job, terminal] of jobTerminals) if (terminal === t) jobTerminals.delete(job);
-  }));
 }
 
 function deactivate() {}
 
-module.exports = { activate, deactivate };
+module.exports = { activate, deactivate, processTable, isAttachedTo };

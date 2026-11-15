@@ -38,6 +38,7 @@ LOG_MAX_BYTES = 1_000_000
 STALE_QUEUE_SECONDS = 3600
 STALE_STATE_SECONDS = 7 * 24 * 3600
 DEDUPE_WINDOW_SECONDS = 120
+JOB_ID = re.compile(r"[A-Za-z0-9_-]{4,40}")  # short id of a background session, as `claude attach` takes it
 
 DEFAULT_CONFIG = {
     "language": "auto",
@@ -448,15 +449,42 @@ def mark_seen(paths, sid, now):
     atomic_write(os.path.join(paths.seen, safe_name(sid)), "%s\n" % now)
 
 
-def recent_done_elsewhere(paths, question, own_sid, now, window=DEDUPE_WINDOW_SECONDS):
+def job_by_name(jobs_dir, name):
+    """Short id (the one `claude attach` takes) of the background session with that name, or "".
+
+    The agent view announces "<name> needs your input" without the id; every background session keeps its
+    name in <claude config>/jobs/<id>/state.json. If several share the name, the most recently updated wins.
+    """
+    best = ("", "")
+    if not name:
+        return ""
+    try:
+        ids = os.listdir(jobs_dir)
+    except OSError:
+        return ""
+    for job in ids:
+        if not JOB_ID.fullmatch(job):
+            continue
+        state = read_json(os.path.join(jobs_dir, job, "state.json"))
+        if state.get("name") == name:
+            updated = str(state.get("updatedAt") or "")
+            if not best[0] or updated > best[1]:
+                best = (job, updated)
+    return best[0]
+
+
+def recent_done_elsewhere(paths, question, own_sid, now, window=DEDUPE_WINDOW_SECONDS, job=""):
     """Does this agent_needs_input repeat a "done" that another session just announced?
 
     A background job announces its own Stop and, a second later, the session that launched it sends
     "<name> needs your input: <the same question>". That second popup would never close (you answer in the
     job, not in the launching session). Returns the other session's short id, or "".
+
+    With `job` it is enough that this very job announced a "done" inside the window: the agent view rewords
+    the question, so comparing the text alone misses it.
     """
     key = one_line(question, 2000).rstrip("…")[:80].strip()
-    if len(key) < 4:
+    if len(key) < 4 and not job:
         return ""
     try:
         names = os.listdir(paths.sessions)
@@ -469,7 +497,11 @@ def recent_done_elsewhere(paths, question, own_sid, now, window=DEDUPE_WINDOW_SE
         if data.get("session") == own_sid:
             continue
         done_at = data.get("done_at", 0)
-        if isinstance(done_at, (int, float)) and now - done_at <= window and key in (data.get("done_text") or ""):
+        if not isinstance(done_at, (int, float)) or now - done_at > window:
+            continue
+        focus = data.get("focus")
+        same_job = bool(job) and isinstance(focus, dict) and focus.get("job") == job
+        if same_job or (len(key) >= 4 and key in (data.get("done_text") or "")):
             return str(data.get("session", name))[:12]
     return ""
 
@@ -563,7 +595,7 @@ class Hook(object):
         # Background sessions (`claude --bg`) have no terminal of their own: they are children of the main
         # session. Their short id (the name of CLAUDE_JOB_DIR) lets the extension run `claude attach <id>`.
         job = os.path.basename(str(self.env.get("CLAUDE_JOB_DIR", "")).rstrip("/"))
-        if re.fullmatch(r"[A-Za-z0-9_-]{4,40}", job or ""):
+        if JOB_ID.fullmatch(job or ""):
             focus["job"] = job
         base = {"project": project, "cwd": cwd, "transcript": transcript_path, "host": host,
                 "focus": focus, "pid": pid}
@@ -606,7 +638,13 @@ class Hook(object):
             text = format_permission(self.lang, tool, detail)
         elif kind == "agent":
             agent, question = transcript_parser.split_agent_question(message)
-            other = recent_done_elsewhere(self.paths, question, sid, self.now)
+            # The agent view speaks for a background session: the click must open that session, not the
+            # agent view that relayed the question.
+            jobs_dir = os.path.join(os.path.expanduser(self.env.get("CLAUDE_CONFIG_DIR") or "~/.claude"), "jobs")
+            job = job_by_name(jobs_dir, agent)
+            if job:
+                base = dict(base, focus=dict(base["focus"], job=job))
+            other = recent_done_elsewhere(self.paths, question, sid, self.now, job=job)
             if other:
                 return self.record(project, sid, "notification", "%s duplicate of %s" % (ntype, other))
             text = question

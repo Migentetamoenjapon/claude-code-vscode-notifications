@@ -73,7 +73,8 @@ class HookTestCase(unittest.TestCase):
             self.write_config(config)
         if app:
             os.makedirs(os.path.join(self.home, "CCNotify.app"), exist_ok=True)
-        environment = {"__CFBundleIdentifier": "com.microsoft.VSCode"}
+        environment = {"__CFBundleIdentifier": "com.microsoft.VSCode",
+                       "CLAUDE_CONFIG_DIR": os.path.join(self._tmp.name, "claude")}  # never the real one
         environment.update(env or {})
         return notify.Hook(self.home, env=environment, now=now, run=run or self.run_)
 
@@ -338,6 +339,42 @@ class NotificationEvent(HookTestCase):
         self.assertEqual(len(self.queued()), 1)
         self.assertIn("duplicate of job-session", self.log_text())
         self.hook(now=NOW + 300).handle("notification", payload("payload_agent_input.json"))
+        self.assertEqual(len(self.queued()), 2)
+
+    def claude_dir_with_job(self, job, name, updated="2026-01-01T00:00:00Z"):
+        claude_dir = os.path.join(self._tmp.name, "claude")
+        os.makedirs(os.path.join(claude_dir, "jobs", job), exist_ok=True)
+        with open(os.path.join(claude_dir, "jobs", job, "state.json"), "w", encoding="utf-8") as f:
+            json.dump({"name": name, "updatedAt": updated}, f)
+        return {"CLAUDE_CONFIG_DIR": claude_dir}
+
+    def test_agent_question_click_opens_the_background_session(self):
+        # The agent view relays the question; the popup and the menu bar must point at the job itself.
+        self.claude_dir_with_job("aaaa1111", "reviewer", "2026-01-01T00:00:00Z")
+        env = self.claude_dir_with_job("bbbb2222", "reviewer", "2026-02-01T00:00:00Z")  # same name, newer
+        self.claude_dir_with_job("cccc3333", "someone-else")
+        self.hook({"language": "en"}, env=env).handle("notification", payload("payload_agent_input.json"))
+        (popup,) = self.queued()
+        self.assertEqual(popup["focus"]["job"], "bbbb2222")
+        self.assertEqual(self.session("sess-main-0002")["focus"]["job"], "bbbb2222")
+
+    def test_agent_question_from_an_unknown_name_keeps_the_plain_focus(self):
+        env = self.claude_dir_with_job("cccc3333", "someone-else")
+        self.hook({"language": "en"}, env=env).handle("notification", payload("payload_agent_input.json"))
+        (popup,) = self.queued()
+        self.assertNotIn("job", popup["focus"])
+
+    def test_agent_question_reworded_after_the_jobs_own_done_is_dropped(self):
+        # The job announced its own "done"; the agent view then sends the same ask in other words.
+        env = self.claude_dir_with_job("aaaa1111", "reviewer")
+        job_env = dict(env, CLAUDE_JOB_DIR="/Users/you/.claude/jobs/aaaa1111")
+        self.hook({"language": "en"}, env=job_env).handle(
+            "stop", payload("payload_stop.json", session_id="job-session", last_assistant_message="All set."))
+        self.assertEqual(len(self.queued()), 1)
+        self.hook(now=NOW + 5, env=env).handle("notification", payload("payload_agent_input.json"))
+        self.assertEqual(len(self.queued()), 1)
+        self.assertIn("duplicate of job-session", self.log_text())
+        self.hook(now=NOW + 300, env=env).handle("notification", payload("payload_agent_input.json"))
         self.assertEqual(len(self.queued()), 2)
 
     def test_per_kind_toggle(self):

@@ -29,6 +29,9 @@ jobs:
       - name: Extension syntax
         run: node --check vscode-extension/extension.js
 
+      - name: Extension helpers
+        run: node tests/extension_helpers.js
+
       - name: Build the extension package
         run: python3 vscode-extension/package.py --out "$RUNNER_TEMP/focus-terminal.vsix"
 

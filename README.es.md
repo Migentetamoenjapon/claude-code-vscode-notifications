@@ -84,7 +84,7 @@ Al tocar un aviso, o una sesión en la barra de menú:
 
 Lo hace una extensión mínima de VS Code incluida (`ccnotify.focus-terminal`), que reconoce la terminal por el proceso de
 Claude. Las **sesiones en segundo plano** (`claude --bg`) no tienen terminal propia; para esas, el clic abre una terminal
-con `claude attach <id>`, que entra directo a esa conversación, y la reutiliza la próxima vez. Funciona con **VS Code, Insiders, Cursor, Windsurf y VSCodium**. Si usas otra app (Terminal, iTerm2), solo la
+con `claude attach <id>`, que entra directo a esa conversación, y la reutiliza mientras siga en esa conversación. Funciona con **VS Code, Insiders, Cursor, Windsurf y VSCodium**. Si usas otra app (Terminal, iTerm2), solo la
 trae al frente.
 
 ## 5. Barra de menú

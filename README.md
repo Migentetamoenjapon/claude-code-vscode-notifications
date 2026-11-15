@@ -84,7 +84,7 @@ Click a popup (or a session in the menu bar):
 
 It works through a tiny bundled VS Code extension (`ccnotify.focus-terminal`) that matches the terminal's shell to the
 Claude process. **Background sessions** (`claude --bg`) have no terminal of their own, so for those the click opens a
-terminal running `claude attach <id>` — straight into that conversation — and reuses it next time. Works with **VS Code, Insiders, Cursor, Windsurf and VSCodium**. Other hosts (Terminal, iTerm2) are
+terminal running `claude attach <id>` — straight into that conversation — and reuses it for as long as it is still on that conversation. Works with **VS Code, Insiders, Cursor, Windsurf and VSCodium**. Other hosts (Terminal, iTerm2) are
 just brought to the front.
 
 ## 5. Menu bar

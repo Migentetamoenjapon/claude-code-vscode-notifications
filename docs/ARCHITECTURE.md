@@ -213,8 +213,15 @@ These refine everything above. When in doubt, this section wins.
   `open -b <that id> <workspaceFile or first folder>`.
 - Ignore requests older than 10 s; poll `state/focus-request.json` every 300 ms with `fs.watchFile`.
 - Background sessions (`claude --bg`) have no terminal of their own. For a request with `job`, the window that owns
-  the main session's terminal opens (or reuses) a terminal running `claude attach <job>`; it never types into the
-  main session's terminal.
+  the main session's terminal shows the terminal that is running `claude attach <job>` **right now** or, if there is
+  none, opens a new one; it never types into the main session's terminal. A terminal is never reused by its name:
+  pressing ← inside `claude attach` turns it into the agent view, where any other conversation can be opened, while
+  the tab keeps its old name. Each click asks `ps` what every terminal is running (its own process or a command
+  started from its shell). Terminals that moved on are left open.
+- "`<name>` needs your input" comes from the agent view, a session of its own with no job id. `notify.py` looks the
+  name up in `<claude config>/jobs/<id>/state.json` (`name`; newest `updatedAt` wins) and puts that id in `focus.job`,
+  so the click opens the session that asked. The same id drops the popup when that job announced its own "done"
+  within 120 s (the agent view rewords the question, so the text comparison alone misses it).
 - Sticky "needs you" popups start their countdown once a tool result appears in the transcript after them (you
   answered); they close at once when Claude writes again or you type.
 
