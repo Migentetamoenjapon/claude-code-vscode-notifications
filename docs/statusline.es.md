@@ -6,13 +6,13 @@
 quieres saber de un vistazo: qué proyecto, qué modelo, qué tan lleno está el contexto y cuánto has
 usado de los límites de tu plan.
 
-Es opcional. La ventanita y la barra de menú funcionan sin ella.
+Como todas las piezas del kit, es opcional: la ventanita y la barra de menú funcionan sin ella.
 
 ## Línea de ejemplo
 
-<img src="img/statusline-real.png" width="760" alt="Línea de estado real en una terminal de VS Code">
+<picture><source media="(prefers-color-scheme: dark)" srcset="img/statusline-es-dark.png"><img src="img/statusline-es-light.png" width="760" alt="Línea de estado con el ticker apagado"></picture>
 
-*Una de verdad, con el ticker encendido. En texto:*
+*Con el ticker opcional encendido, la línea sigue así:*
 
 ```
 my-project  Sonnet high │ ctx 52% │ sesión ~1.2% ~$0.28 45k │ 5h 12% ↻3:00pm │ sem 45% $10.38/$23 │ ABC 101.50 +0.42% 3:58pm

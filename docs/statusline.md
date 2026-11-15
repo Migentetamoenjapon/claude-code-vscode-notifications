@@ -6,13 +6,13 @@
 want to know at a glance: which project, which model, how full the context is, and how much of your
 plan limits you have used.
 
-It is optional. The popup and the menu bar work without it.
+Like every piece of the kit, it is optional: the popup and the menu bar work without it.
 
 ## Sample line
 
-<img src="img/statusline-real.png" width="760" alt="Real status line in a VS Code terminal">
+<picture><source media="(prefers-color-scheme: dark)" srcset="img/statusline-dark.png"><img src="img/statusline-light.png" width="760" alt="Status line with the ticker off"></picture>
 
-*A real one (Spanish labels, ticker on). The same in English:*
+*With the optional ticker turned on, the line continues like this:*
 
 ```
 my-project  Sonnet high │ ctx 52% │ session ~1.2% ~$0.28 45k │ 5h 12% ↻3:00pm │ wk 45% $10.38/$23 │ ABC 101.50 +0.42% 3:58pm

@@ -11,18 +11,26 @@ VS Code** de esa sesión, y un ícono en la barra de menú sigue todas tus sesio
 
 > Proyecto de la comunidad, no oficial. No está afiliado a Anthropic ni cuenta con su aval. "Claude" es una marca de Anthropic.
 
+## Empieza aquí
+
+| Si tú… | Ve a |
+|---|---|
+| **Nunca has usado Claude Code** | **[Configurar Claude Code en VS Code en una Mac, paso a paso](docs/install-claude-code-mac.es.md)** — desde cero: la cuenta, VS Code, Claude Code, tu primera conversación y, al final, este kit. Unos 30 minutos, sin saber nada de terminales. |
+| **Ya usas Claude Code en VS Code** | **[Instalar](#instalar)** — tres líneas en la terminal. |
+
 ## Contenido
 
-1. [Qué trae](#qué-trae)
-2. [Avisos](#1-avisos)
-3. [Estilos](#2-estilos)
-4. [Mensajes largos y varios a la vez](#3-mensajes-largos-y-varios-a-la-vez)
-5. [Ir a la terminal exacta](#4-ir-a-la-terminal-exacta)
-6. [Barra de menú](#5-barra-de-menú)
-7. [Sonidos](#6-sonidos)
-8. [Línea de estado (opcional)](#7-línea-de-estado-opcional)
-9. [Instalar](#instalar) · [Configurar](#configurar) · [Desinstalar](#desinstalar)
-10. [Privacidad](#privacidad-y-permisos) · [Si algo falla](#si-algo-falla) · [Cómo funciona](#cómo-funciona)
+1. [Empieza aquí](#empieza-aquí) — la guía paso a paso
+2. [Qué trae](#qué-trae)
+3. [Avisos](#1-avisos)
+4. [Estilos](#2-estilos)
+5. [Mensajes largos y varios a la vez](#3-mensajes-largos-y-varios-a-la-vez)
+6. [Ir a la terminal exacta](#4-ir-a-la-terminal-exacta)
+7. [Barra de menú](#5-barra-de-menú)
+8. [Sonidos](#6-sonidos)
+9. [Línea de estado](#7-línea-de-estado)
+10. [Instalar](#instalar) · [Elige lo que quieres](#elige-lo-que-quieres) · [Configurar](#configurar) · [Desinstalar](#desinstalar)
+11. [Privacidad](#privacidad-y-permisos) · [Si algo falla](#si-algo-falla) · [Cómo funciona](#cómo-funciona)
 
 ## Qué trae
 
@@ -34,9 +42,11 @@ VS Code** de esa sesión, y un ícono en la barra de menú sigue todas tus sesio
 | 4 | **Ir a la terminal** | Un clic → la ventana correcta de VS Code y la terminal exacta. |
 | 5 | **Barra de menú** | Todas las sesiones de un vistazo: te necesita · te escribió · pensando. |
 | 6 | **Sonidos** | Un sonido distinto por tipo de mensaje, con horas de silencio. |
-| 7 | **Línea de estado** | Opcional, una línea: modelo, contexto, costo de la sesión y límites. |
+| 7 | **Línea de estado** | Una línea discreta al pie de Claude Code: modelo, contexto, costo de la sesión y límites. |
 | | **Instalar / desinstalar** | Un script para cada cosa; respeta tus hooks y respalda tu configuración. |
 | | **Idiomas** | Inglés y español. |
+
+**Todas las piezas son opcionales**: toma solo las que quieras; mira [Elige lo que quieres](#elige-lo-que-quieres).
 
 ---
 
@@ -89,16 +99,29 @@ trae al frente.
 
 ## 5. Barra de menú
 
-Un ícono muestra el estado más urgente de todas tus sesiones:
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/menubar-es-dark.png"><img src="docs/img/menubar-es-light.png" width="467" alt="Ícono de la barra de menú con un número y su menú abierto: las sesiones agrupadas en Te necesitan, Te escribieron, Pensando y Esperan que escribas"></picture></p>
+
+Dos globos de diálogo en la barra de menú muestran el estado más urgente de todas tus sesiones. El número de al lado
+cuenta lo que te espera: las sesiones que te necesitan más los mensajes que todavía no viste.
 
 | Ícono | Qué significa |
 |---|---|
-| Color de atención | Una sesión **te necesita** (permiso, pregunta, agente). |
-| Color de acento | Una sesión **te escribió** y todavía no lo viste. |
-| Gris | Las sesiones están **pensando**, o no hay nada pendiente. |
+| Relleno, color de atención, con número | Una sesión **te necesita** (permiso, pregunta, agente). |
+| Relleno, el color de acento de tu macOS, con número | Una sesión **te escribió** y todavía no lo viste. |
+| Contorno, gris | Las sesiones están **pensando**. |
+| Contorno, sin color | No hay nada pendiente. |
 
-El menú lista cada sesión con su proyecto, su estado, hace cuánto y un resumen de una línea. Tócala para ir a ella.
-En el estilo `mono` el ícono queda gris y el estado se nota por su forma.
+Al abrirlo ves todas las sesiones, agrupadas: **Te necesitan · Te escribieron · Pensando · Esperan que escribas**.
+
+- Cada fila muestra el proyecto, el estado, hace cuánto (y cuántos agentes siguen trabajando) y una línea con lo que
+  dijo Claude o lo que le pediste.
+- Toca una fila para [ir a la terminal de esa sesión](#4-ir-a-la-terminal-exacta).
+- **Marcar todo como visto** limpia los no leídos. Una sesión sale de la lista cuando la cierras.
+- Arranca sola al iniciar sesión en la Mac.
+
+En el estilo `mono` nada lleva color: el estado se nota por la forma del ícono y de la marca de cada fila.
+
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/menubar-mono-dark.png"><img src="docs/img/menubar-mono-light.png" width="434" alt="El mismo menú en estilo mono: en grises, con una marca distinta para cada estado"></picture></p>
 
 ## 6. Sonidos
 
@@ -112,15 +135,22 @@ En el estilo `mono` el ícono queda gris y el estado se nota por su forma.
 - Cualquier sonido de `/System/Library/Sounds`, un archivo en `~/Library/Sounds`, la ruta completa a un audio, o `""` (silencio).
 - Como máximo un sonido cada 3 segundos, y **horas de silencio** opcionales (los avisos se siguen mostrando).
 
-## 7. Línea de estado (opcional)
+## 7. Línea de estado
 
-<p><img src="docs/img/statusline-real.png" width="760" alt="Línea de estado real en una terminal de VS Code: proyecto, modelo, contexto 61 %, sesión, límite de 5 horas, semana y un ticker de mercado"></p>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/statusline-es-dark.png"><img src="docs/img/statusline-es-light.png" width="760" alt="Línea de estado: my-project, Sonnet high, contexto 52 %, parte y costo de la sesión, límite de 5 horas con su hora de reinicio, límite semanal en dólares del plan"></picture></p>
 
-*Una de verdad, con el ticker opcional encendido.*
+Una línea gris y discreta al pie de Claude Code. Un número toma color solo cuando pasa del 40 %.
 
-Una línea gris al pie de Claude Code: proyecto · modelo · contexto · esta sesión · límites de 5 horas y de la semana.
-El color aparece solo arriba del 40 %. Los dólares aparecen solo si pones el precio de tu plan; el ticker de mercado
-opcional viene **apagado** (es lo único que usa internet). Detalles: **[docs/statusline.es.md](docs/statusline.es.md)**.
+| Segmento | Qué significa |
+|---|---|
+| `my-project  Sonnet high` | Carpeta del proyecto, modelo y nivel de razonamiento. |
+| `ctx 52%` | Qué tan lleno está el contexto. |
+| `sesión ~1.2% ~$0.28 45k` | Solo esta sesión: su parte de tu límite semanal, esa parte en dólares del plan y los tokens usados. |
+| `5h 12% ↻3:00pm` | Cuánto llevas del límite de 5 horas y a qué hora se reinicia. |
+| `sem 45% $10.38/$23` | Cuánto llevas del límite semanal, también en dólares del plan. |
+
+Los dólares aparecen solo si pones el precio de tu plan. El ticker de mercado opcional viene **apagado** (es lo único
+de este kit que usa internet). Detalles: **[docs/statusline.es.md](docs/statusline.es.md)**.
 
 ---
 
@@ -128,12 +158,15 @@ opcional viene **apagado** (es lo único que usa internet). Detalles: **[docs/st
 
 **Requisitos:** macOS 12 o más nuevo (Intel o Apple Silicon), las herramientas de línea de comandos de Xcode
 (`xcode-select --install`) y Claude Code usado desde la **terminal integrada** de VS Code (o Insiders, Cursor, Windsurf
-o VSCodium). ¿Recién empiezas? → **[Instalar Claude Code en una Mac, paso a paso](docs/install-claude-code-mac.es.md)**.
+o VSCodium).
+
+> ¿Todavía no tienes Claude Code o nunca usaste una terminal? Sigue primero
+> **[Configurar Claude Code en VS Code en una Mac, paso a paso](docs/install-claude-code-mac.es.md)**: termina con esta instalación.
 
 ```bash
 git clone https://github.com/Migentetamoenjapon/claude-code-vscode-notifications.git
 cd claude-code-vscode-notifications
-./install.sh --statusline      # quita --statusline si no quieres la línea de estado
+./install.sh --statusline
 ```
 
 Después **abre una sesión nueva de Claude Code** para que cargue los hooks.
@@ -146,8 +179,20 @@ Después **abre una sesión nueva de Claude Code** para que cargue los hooks.
 | 4 | Hace que la barra de menú arranque al iniciar sesión (LaunchAgent). |
 | 5 | Instala la extensión Focus Terminal en cada editor de la familia VS Code que encuentre. |
 
-Opciones: `--dry-run` (muestra, no cambia nada) · `--statusline` · `--force` (reemplaza una línea de estado que ya
-tengas) · `--universal` (compila para Intel y Apple Silicon).
+Otras opciones: `--dry-run` (muestra, no cambia nada) · `--force` (reemplaza una línea de estado que ya tengas) ·
+`--universal` (compila para Intel y Apple Silicon).
+
+### Elige lo que quieres
+
+Todas las piezas son opcionales. Las opciones valen al instalar; las claves de la configuración, desde el siguiente aviso.
+
+| Pieza | Para no tenerla |
+|---|---|
+| Avisos | `"popup": { "enabled": false }` en la configuración, o apaga un solo tipo con `"events": { "done": false }`. |
+| Sonidos | `"sound": ""` para ese tipo en la configuración. |
+| Ir a la terminal | Instala con `--skip-extension` (el clic entonces solo trae el editor al frente). |
+| Barra de menú | Instala con `--skip-launchagent` (la app de la barra de menú no se inicia). |
+| Línea de estado | Instala sin `--statusline`. |
 
 ## Configurar
 

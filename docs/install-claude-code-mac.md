@@ -1,4 +1,4 @@
-# Install Claude Code on a Mac, from zero
+# Set up Claude Code in VS Code on a Mac, from zero
 
 *[Español](install-claude-code-mac.es.md)*
 

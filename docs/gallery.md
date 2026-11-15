@@ -1,7 +1,9 @@
 # Gallery
 
-All images are rendered by `tests/render/render_samples.sh` from the real app with fictional projects.
-Light theme on the left, dark on the right. The live popup is translucent (it blurs what's behind it).
+All images are made from the real apps and scripts with fictional projects: popups by
+`tests/render/render_samples.sh`, the menu bar by `tests/render/render_menubar.sh`, the status line by
+`tests/render/render_statusline.sh`. Light theme on the left, dark on the right. The live popup is translucent
+(it blurs what's behind it).
 
 ### Stack (newest open on top, older ones compact)
 
@@ -75,3 +77,26 @@ Light theme on the left, dark on the right. The live popup is translucent (it bl
 | <img src="img/popup-style-default-agent-light.png" width="280" alt="default style, Agent asks, light"> | <img src="img/popup-style-color-agent-light.png" width="280" alt="color style, Agent asks, light"> | <img src="img/popup-style-mono-agent-light.png" width="280" alt="mono style, Agent asks, light"> |
 | <img src="img/popup-style-default-agent-dark.png" width="280" alt="default style, Agent asks, dark"> | <img src="img/popup-style-color-agent-dark.png" width="280" alt="color style, Agent asks, dark"> | <img src="img/popup-style-mono-agent-dark.png" width="280" alt="mono style, Agent asks, dark"> |
 
+## Menu bar
+
+### Default style
+
+<img src="img/menubar-light.png" width="420" alt="Menu bar with its menu open, light"> <img src="img/menubar-dark.png" width="420" alt="Menu bar with its menu open, dark">
+
+### Mono style
+
+<img src="img/menubar-mono-light.png" width="420" alt="Menu bar in mono style, light"> <img src="img/menubar-mono-dark.png" width="420" alt="Menu bar in mono style, dark">
+
+### Spanish UI
+
+<img src="img/menubar-es-light.png" width="420" alt="Menu bar in Spanish, light"> <img src="img/menubar-es-dark.png" width="420" alt="Menu bar in Spanish, dark">
+
+## Status line
+
+<img src="img/statusline-light.png" width="760" alt="Status line, light">
+
+<img src="img/statusline-dark.png" width="760" alt="Status line, dark">
+
+<img src="img/statusline-es-light.png" width="760" alt="Status line with Spanish labels, light">
+
+<img src="img/statusline-es-dark.png" width="760" alt="Status line with Spanish labels, dark">

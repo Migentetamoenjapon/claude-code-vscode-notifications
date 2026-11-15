@@ -9,8 +9,8 @@
 #   --force            allow replacing an existing, different statusLine
 #   --universal        build the apps for arm64 + x86_64 (default: this machine's architecture)
 #   --skip-build       do not build the apps (testing)
-#   --skip-launchagent do not create/load the menu bar LaunchAgent (testing)
-#   --skip-extension   do not install the VS Code extension (testing)
+#   --skip-launchagent do not create/load the menu bar LaunchAgent (no menu bar icon)
+#   --skip-extension   do not install the VS Code extension (a click then only raises the editor)
 #
 # Environment: CCNOTIFY_HOME (default <claude config dir>/ccnotify), CLAUDE_CONFIG_DIR (default ~/.claude),
 # CCNOTIFY_LAUNCHAGENTS_DIR (default ~/Library/LaunchAgents).
