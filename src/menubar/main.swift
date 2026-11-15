@@ -134,8 +134,8 @@ extension NSColor {
 
 /// "Needs you": the same orange family as the popup's attention cue.
 let attentionColor = NSColor.dynamic(light: 0xB8532F, dark: 0xE8977A)
-/// "Wrote to you": the system accent color.
-let accentColor = NSColor.controlAccentColor
+/// "Wrote to you": a calm green, the same on every Mac (it does not follow the system accent color).
+let wroteColor = NSColor.dynamic(light: 0x55663F, dark: 0xA9B98C)
 
 // MARK: - Model
 
@@ -397,7 +397,7 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
             else if nThinking > 0 { symbols = ["ellipsis.bubble", base] }
             else { symbols = [base] }
         } else if nNeeds > 0 { tint = attentionColor; symbols = [base + ".fill"] }
-        else if nWrote > 0 { tint = accentColor; symbols = [base + ".fill"] }
+        else if nWrote > 0 { tint = wroteColor; symbols = [base + ".fill"] }
         else if nThinking > 0 { tint = .secondaryLabelColor; symbols = [base] }
         else { tint = nil; symbols = [base] }
 
@@ -482,7 +482,7 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
             switch s.state {
             case "needs": return ("●", attentionColor)
             case "thinking": return ("◌", .secondaryLabelColor)
-            default: return s.seen ? ("○", .tertiaryLabelColor) : ("●", accentColor)
+            default: return s.seen ? ("○", .tertiaryLabelColor) : ("●", wroteColor)
             }
         }()
         var detail = "\(stateLabel(s)) · \(L.ago(s.since))"
@@ -550,6 +550,25 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return create(.null, options.rawValue, id, imageOptions.rawValue)?.takeRetainedValue()
     }
 
+    /// True when a grab shows nothing: fully transparent, or one flat color.
+    func isBlank(_ image: CGImage) -> Bool {
+        let side = 32
+        var px = [UInt8](repeating: 0, count: side * side * 4)
+        let drawn: Bool = px.withUnsafeMutableBytes { buf in
+            guard let ctx = CGContext(data: buf.baseAddress, width: side, height: side, bitsPerComponent: 8,
+                                      bytesPerRow: side * 4, space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
+            ctx.draw(image, in: CGRect(x: 0, y: 0, width: side, height: side))
+            return true
+        }
+        guard drawn else { return false }
+        var flat = true
+        for i in stride(from: 4, to: px.count, by: 4) where flat {
+            for c in 0..<4 where abs(Int(px[i + c]) - Int(px[c])) > 6 { flat = false }
+        }
+        return flat
+    }
+
     func grabAndCompose(itemID: CGWindowID, to path: String) -> Bool {
         let scale = CGFloat(Double(env["CCNOTIFY_CAPTURE_SCALE"] ?? "") ?? 2)
         let pid = Int(getpid())
@@ -565,6 +584,11 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         guard let mw = menuWin, let menuImg = windowImage(mw.id), let button = item.button else {
             fputs("could not grab the menu windows\n", stderr)
+            return false
+        }
+        // With the display asleep or the screen locked the window exists but has no pixels
+        if isBlank(menuImg) {
+            fputs("the menu came out empty: is the display asleep or the screen locked?\n", stderr)
             return false
         }
         // The menu grab comes at the screen's pixel density; sizes below are in points

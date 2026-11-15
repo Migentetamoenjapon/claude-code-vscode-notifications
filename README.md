@@ -106,8 +106,8 @@ what is waiting for you: sessions that need you plus messages you haven't looked
 
 | Icon | Meaning |
 |---|---|
-| Filled, attention color, with a number | A session **needs you** (permission, question, agent). |
-| Filled, your macOS accent color, with a number | A session **wrote to you** and you haven't looked yet. |
+| Filled, orange, with a number | A session **needs you** (permission, question, agent). |
+| Filled, green, with a number | A session **wrote to you** and you haven't looked yet. |
 | Outline, gray | Sessions are **thinking**. |
 | Outline, no color | Nothing pending. |
 

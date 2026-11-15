@@ -106,8 +106,8 @@ cuenta lo que te espera: las sesiones que te necesitan más los mensajes que tod
 
 | Ícono | Qué significa |
 |---|---|
-| Relleno, color de atención, con número | Una sesión **te necesita** (permiso, pregunta, agente). |
-| Relleno, el color de acento de tu macOS, con número | Una sesión **te escribió** y todavía no lo viste. |
+| Relleno, naranja, con número | Una sesión **te necesita** (permiso, pregunta, agente). |
+| Relleno, verde, con número | Una sesión **te escribió** y todavía no lo viste. |
 | Contorno, gris | Las sesiones están **pensando**. |
 | Contorno, sin color | No hay nada pendiente. |
 

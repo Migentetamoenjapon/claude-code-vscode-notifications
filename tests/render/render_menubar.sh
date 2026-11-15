@@ -4,8 +4,9 @@
 # status item is drawn by the app from its button's real symbol, tint and count (a window grab of it comes
 # out untinted). Both sit on the same soft backdrop the popup pictures use. The menu is grabbed at the
 # screen's own pixel density, so run it on a Retina Mac for sharp text. Needs a logged-in macOS GUI
-# session, but no Screen Recording permission. Each run flashes the menu for about a second. All sessions
-# below are fictional.
+# session with the display awake and unlocked (otherwise the menu has no pixels and the capture fails
+# with a message; `caffeinate -u -t 60 &` wakes the display), but no Screen Recording permission. Each
+# run flashes the menu for about a second. All sessions below are fictional.
 #
 # Files written (light and dark of each):
 #   menubar-<theme>.png       English, default style
