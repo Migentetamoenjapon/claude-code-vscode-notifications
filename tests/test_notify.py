@@ -96,6 +96,29 @@ class HookTestCase(unittest.TestCase):
         with open(os.path.join(self.home, "state", "ccnotify.log"), encoding="utf-8") as f:
             return f.read()
 
+    def session_names(self):
+        folder = os.path.join(self.home, "state", "sessions")
+        return sorted(n for n in os.listdir(folder) if n.endswith(".json")) if os.path.isdir(folder) else []
+
+    def is_seen(self, sid):
+        """Same rule as the menu bar: seen when state/seen/<id> holds an epoch >= the row's `since`."""
+        try:
+            with open(os.path.join(self.home, "state", "seen", sid), encoding="utf-8") as f:
+                return float(f.read()) >= self.session(sid)["since"]
+        except (OSError, ValueError):
+            return False
+
+    def write_transcript(self, entries, name="transcript.jsonl"):
+        """A small transcript; entries are (type, epoch, text) and get ISO UTC timestamps like Claude Code's."""
+        path = os.path.join(self._tmp.name, name)
+        with open(path, "w", encoding="utf-8") as f:
+            for kind, epoch, text in entries:
+                stamp = time.strftime("%Y-%m-%dT%H:%M:%S.250Z", time.gmtime(epoch))
+                content = [{"type": "text", "text": text}] if kind == "assistant" else text
+                f.write(json.dumps({"type": kind, "message": {"role": kind, "content": content},
+                                    "timestamp": stamp}) + "\n")
+        return path
+
 
 class ConfigAndHelpers(unittest.TestCase):
     def test_merge_keeps_defaults_and_overrides(self):
@@ -231,6 +254,14 @@ class StopEvent(HookTestCase):
         self.assertEqual(state["updated_at"], NOW + 60)
         self.assertEqual(state["project"], "my-project")
 
+    def test_stop_sets_wrote_and_leaves_it_unseen(self):
+        self.hook({"language": "en"}).handle("prompt", payload("payload_stop.json", prompt="Fix it"))
+        self.hook(now=NOW + 60).handle("stop", payload("payload_stop.json"))
+        state = self.session("sess-stop-0004")
+        self.assertEqual((state["state"], state["since"]), ("wrote", NOW + 60))
+        self.assertEqual(state["summary"], "All tests pass now. fixed a.py")
+        self.assertFalse(self.is_seen("sess-stop-0004"))
+
     def test_short_turn_is_silent_but_still_shown(self):
         self.hook({"language": "en"}).handle("prompt", payload("payload_stop.json"))
         self.hook(now=NOW + 5).handle("stop", payload("payload_stop.json"))
@@ -311,10 +342,18 @@ class NotificationEvent(HookTestCase):
         (popup,) = self.queued()
         self.assertEqual(popup["text"].count("```"), 2)
 
+    def test_permission_sets_the_sessions_own_row_to_needs(self):
+        self.hook({"language": "en"}).handle("notification", payload("payload_permission.json"))
+        state = self.session("sess-perm-0001")
+        self.assertEqual((state["state"], state["since"], state["project"]), ("needs", NOW, "my-project"))
+        self.assertIn("Asks permission to use", state["summary"])
+        self.assertFalse(self.is_seen("sess-perm-0001"))
+
     def test_idle_prompt_is_ignored(self):
         self.hook({"language": "en"}).handle("notification", payload("payload_idle.json"))
         self.assertEqual(self.queued(), [])
         self.assertEqual(self.run_.named("open"), [])
+        self.assertEqual(self.session_names(), [])  # no row is created for it either
         self.assertIn("idle_prompt ignored", self.log_text())
 
     def test_question_kind(self):
@@ -356,7 +395,7 @@ class NotificationEvent(HookTestCase):
         self.hook({"language": "en"}, env=env).handle("notification", payload("payload_agent_input.json"))
         (popup,) = self.queued()
         self.assertEqual(popup["focus"]["job"], "bbbb2222")
-        self.assertEqual(self.session("sess-main-0002")["focus"]["job"], "bbbb2222")
+        self.assertEqual(self.session_names(), [])  # the agent view gets no row; this job has none yet
 
     def test_agent_question_from_an_unknown_name_keeps_the_plain_focus(self):
         env = self.claude_dir_with_job("cccc3333", "someone-else")
@@ -376,6 +415,71 @@ class NotificationEvent(HookTestCase):
         self.assertIn("duplicate of job-session", self.log_text())
         self.hook(now=NOW + 300, env=env).handle("notification", payload("payload_agent_input.json"))
         self.assertEqual(len(self.queued()), 2)
+
+    def job_session(self, sid="job-session", job="bbbb2222", transcript=None):
+        """The job's own row, as its own prompt hook writes it. Returns the env the agent view's hook uses."""
+        env = self.claude_dir_with_job(job, "reviewer")
+        job_env = dict(env, CLAUDE_JOB_DIR="/Users/you/.claude/jobs/%s" % job)
+        transcript = transcript or fixture("transcript_text.jsonl")
+        self.hook({"language": "en"}, env=job_env).handle(
+            "prompt", payload("payload_stop.json", session_id=sid, prompt="Review it", transcript_path=transcript))
+        return env
+
+    def test_agent_relay_updates_the_jobs_own_row_and_creates_none(self):
+        env = self.job_session()
+        before = self.session("job-session")
+        self.hook(now=NOW + 30, env=env).handle("notification", payload("payload_agent_input.json"))
+        state = self.session("job-session")
+        self.assertEqual((state["state"], state["since"], state["summary"]),
+                         ("needs", NOW + 30, "Which branch should I compare against?"))
+        for key in ("project", "cwd", "transcript", "focus", "pid", "request", "host", "turn_started_at"):
+            self.assertEqual(state[key], before[key], key)
+        self.assertEqual(state["focus"]["job"], "bbbb2222")
+        self.assertEqual(self.session_names(), ["job-session.json"])  # none for the agent view (sess-main-0002)
+        (popup,) = self.queued()
+        self.assertEqual((popup["kind"], popup["title"]), ("agent", "my-project · reviewer"))
+        self.assertEqual(popup["focus"]["job"], "bbbb2222")
+        self.assertEqual(popup["session"], "job-session")  # closing the popup marks the job's row as seen
+
+    def test_agent_relay_keeps_the_question_out_of_the_row_in_private_mode(self):
+        env = self.job_session()
+        self.hook({"language": "en", "popup": {"private": True}}, now=NOW + 30, env=env).handle(
+            "notification", payload("payload_agent_input.json"))
+        state = self.session("job-session")
+        self.assertEqual((state["state"], state["summary"]), ("needs", ""))
+
+    def test_agent_relay_without_a_row_for_the_job_creates_nothing(self):
+        env = self.claude_dir_with_job("bbbb2222", "reviewer")
+        self.hook({"language": "en"}, env=env).handle("notification", payload("payload_agent_input.json"))
+        self.assertEqual(self.session_names(), [])
+        (popup,) = self.queued()  # the popup is still shown
+        self.assertEqual(popup["text"], "Which branch should I compare against?")
+        self.assertEqual(popup["focus"]["job"], "bbbb2222")
+        self.assertEqual(popup["session"], "sess-main-0002")
+
+    def test_agent_relay_ignores_rows_of_the_job_whose_transcript_is_gone(self):
+        env = self.job_session(transcript=os.path.join(self._tmp.name, "missing.jsonl"))
+        self.hook(now=NOW + 30, env=env).handle("notification", payload("payload_agent_input.json"))
+        self.assertEqual(self.session("job-session")["state"], "thinking")
+        self.assertEqual(self.session_names(), ["job-session.json"])
+        self.assertEqual(len(self.queued()), 1)
+
+    def test_agent_relay_picks_the_newest_row_of_the_job(self):
+        env = self.job_session(sid="job-old")
+        self.hook(now=NOW + 5, env=dict(env, CLAUDE_JOB_DIR="/Users/you/.claude/jobs/bbbb2222")).handle(
+            "prompt", payload("payload_stop.json", session_id="job-new", prompt="again",
+                              transcript_path=fixture("transcript_text.jsonl")))
+        self.hook(now=NOW + 30, env=env).handle("notification", payload("payload_agent_input.json"))
+        self.assertEqual(self.session("job-new")["state"], "needs")
+        self.assertEqual(self.session("job-old")["state"], "thinking")
+
+    def test_session_of_job_skips_the_excluded_session(self):
+        self.job_session()
+        paths = notify.Paths(self.home)
+        self.assertEqual(notify.session_of_job(paths, "bbbb2222", "other"), "job-session")
+        self.assertEqual(notify.session_of_job(paths, "bbbb2222", "job-session"), "")
+        self.assertEqual(notify.session_of_job(paths, "", "other"), "")
+        self.assertEqual(notify.session_of_job(paths, "zzzz9999", "other"), "")
 
     def test_per_kind_toggle(self):
         self.hook({"events": {"permission": False}}).handle("notification", payload("payload_permission.json"))
@@ -425,49 +529,62 @@ class SessionStateEvents(HookTestCase):
                          ("thinking", "Do the thing", NOW))
         self.assertTrue(os.path.exists(os.path.join(self.home, "state", "seen", "sess-stop-0004")))
 
-    def test_session_start_registers_without_overwriting(self):
+    def test_session_start_creates_no_row(self):
         self.hook({"language": "en"}).handle("session-start", payload("payload_stop.json"))
-        self.assertEqual(self.session("sess-stop-0004")["summary"], "New session")
+        self.assertEqual(self.session_names(), [])
+        self.assertFalse(os.path.exists(os.path.join(self.home, "state", "seen", "sess-stop-0004")))
+        self.assertEqual(self.queued(), [])
+
+    def test_first_prompt_creates_the_thinking_row(self):
+        self.hook({"language": "en"}).handle("session-start", payload("payload_stop.json"))
         self.hook(now=NOW + 1).handle("prompt", payload("payload_stop.json", prompt="x"))
-        self.hook(now=NOW + 2).handle("session-start", payload("payload_stop.json"))
+        self.assertEqual(self.session_names(), ["sess-stop-0004.json"])
+        self.assertEqual(self.session("sess-stop-0004")["state"], "thinking")
+        self.hook(now=NOW + 2).handle("session-start", payload("payload_stop.json"))  # does not touch it
         self.assertEqual(self.session("sess-stop-0004")["state"], "thinking")
 
     def test_clear_replaces_previous_session_of_same_process(self):
         hook = self.hook({"language": "en"})
         hook._pid = 4242
-        hook.handle("session-start", payload("payload_stop.json", session_id="old-session"))
+        hook.handle("prompt", payload("payload_stop.json", session_id="old-session", prompt="x"))
         other = self.hook(now=NOW + 1)
         other._pid = 4242
         other.handle("session-start", payload("payload_stop.json", session_id="new-session"))
-        names = sorted(n for n in os.listdir(os.path.join(self.home, "state", "sessions")) if n.endswith(".json"))
-        self.assertEqual(names, ["new-session.json"])
+        self.assertEqual(self.session_names(), [])  # the old row is gone and the new one waits for a prompt
+        again = self.hook(now=NOW + 2)
+        again._pid = 4242
+        again.handle("prompt", payload("payload_stop.json", session_id="new-session", prompt="y"))
+        self.assertEqual(self.session_names(), ["new-session.json"])
         self.assertEqual(self.session("new-session")["focus"]["pid"], 4242)
 
     def test_background_jobs_sharing_a_process_do_not_wipe_each_other(self):
         # Two background sessions reported under the same pid: starting one must not remove the other.
         a = self.hook({"language": "en"}, env={"CLAUDE_JOB_DIR": "/Users/you/.claude/jobs/aaaa1111"})
         a._pid = 4242
-        a.handle("session-start", payload("payload_stop.json", session_id="job-a"))
+        a.handle("prompt", payload("payload_stop.json", session_id="job-a", prompt="x"))
         b = self.hook(now=NOW + 1, env={"CLAUDE_JOB_DIR": "/Users/you/.claude/jobs/bbbb2222"})
         b._pid = 4242
         b.handle("session-start", payload("payload_stop.json", session_id="job-b"))
-        names = sorted(n for n in os.listdir(os.path.join(self.home, "state", "sessions")) if n.endswith(".json"))
-        self.assertEqual(names, ["job-a.json", "job-b.json"])
+        self.assertEqual(self.session_names(), ["job-a.json"])
+        c = self.hook(now=NOW + 2, env={"CLAUDE_JOB_DIR": "/Users/you/.claude/jobs/bbbb2222"})
+        c._pid = 4242
+        c.handle("prompt", payload("payload_stop.json", session_id="job-b", prompt="y"))
+        self.assertEqual(self.session_names(), ["job-a.json", "job-b.json"])
         self.assertEqual(self.session("job-b")["focus"]["job"], "bbbb2222")
 
-    def test_new_session_and_interrupted_turn_are_not_unread(self):
-        self.hook({"language": "en"}).handle("session-start", payload("payload_stop.json"))
+    def test_interrupted_turn_is_not_unread(self):
+        self.hook({"language": "en"}).handle("prompt", payload("payload_stop.json", prompt="x"))
         seen = os.path.join(self.home, "state", "seen", "sess-stop-0004")
-        self.assertTrue(os.path.exists(seen))
         os.remove(seen)
         self.hook(now=NOW + 5).handle(
             "stop", payload("payload_stop.json", transcript_path=fixture("transcript_interrupted.jsonl")))
         self.assertTrue(os.path.exists(seen))
+        self.assertTrue(self.is_seen("sess-stop-0004"))
 
     def test_other_process_sessions_survive(self):
         a = self.hook({"language": "en"})
         a._pid = 1
-        a.handle("session-start", payload("payload_stop.json", session_id="a"))
+        a.handle("prompt", payload("payload_stop.json", session_id="a", prompt="x"))
         b = self.hook()
         b._pid = 2
         b.handle("session-start", payload("payload_stop.json", session_id="b"))
@@ -512,6 +629,93 @@ class SessionStateEvents(HookTestCase):
         home_dir = os.path.expanduser("~")
         hook.handle("prompt", payload("payload_stop.json", cwd=home_dir, prompt="x"))
         self.assertEqual(self.session("sess-stop-0004")["project"], "Home")
+
+
+class IdleNotification(HookTestCase):
+    """Claude Code sends idle_prompt about a minute after it goes idle; it repairs a row whose Stop never came."""
+
+    def start_turn(self, transcript, config=None):
+        self.hook(config or {"language": "en"}).handle(
+            "prompt", payload("payload_stop.json", prompt="Do it", transcript_path=transcript))
+
+    def idle(self, transcript, delay=90, config=None, **overrides):
+        return self.hook(config, now=NOW + delay).handle(
+            "notification", payload("payload_idle.json", session_id="sess-stop-0004", transcript_path=transcript,
+                                    **overrides))
+
+    def test_answered_without_a_stop_becomes_wrote_and_unseen(self):
+        transcript = self.write_transcript([("user", NOW, "Do it"), ("assistant", NOW + 30, "Here is **the answer**.")])
+        self.start_turn(transcript)
+        before = self.session("sess-stop-0004")
+        self.assertEqual(self.idle(transcript), "idle_prompt fixed: answered without a stop")
+        state = self.session("sess-stop-0004")
+        self.assertEqual((state["state"], state["since"], state["tasks"], state["summary"]),
+                         ("wrote", NOW + 90, 0, "Here is the answer."))
+        self.assertEqual(state["request"], before["request"])
+        self.assertFalse(self.is_seen("sess-stop-0004"))  # not marked seen: it is news to read
+        self.assertEqual(self.queued(), [])  # no popup
+        self.assertEqual(self.run_.named("open"), [])
+        self.assertIn("idle_prompt fixed: answered without a stop", self.log_text())
+
+    def test_untyped_idle_message_counts_too(self):
+        transcript = self.write_transcript([("assistant", NOW + 30, "Done.")])
+        self.start_turn(transcript)
+        data = payload("payload_idle.json", session_id="sess-stop-0004", transcript_path=transcript)
+        del data["notification_type"]
+        self.hook(now=NOW + 90).handle("notification", data)
+        self.assertEqual(self.session("sess-stop-0004")["state"], "wrote")
+
+    def test_private_mode_keeps_the_answer_out_of_the_row(self):
+        config = {"language": "en", "popup": {"private": True}}
+        transcript = self.write_transcript([("assistant", NOW + 30, "A secret answer.")])
+        self.start_turn(transcript, config)
+        self.idle(transcript, config=config)
+        state = self.session("sess-stop-0004")
+        self.assertEqual((state["state"], state["summary"]), ("wrote", ""))
+
+    def test_no_answer_after_the_prompt_becomes_wrote_and_seen(self):
+        # e.g. a local slash command: the turn produced no assistant entry
+        transcript = self.write_transcript([("assistant", NOW - 60, "Earlier answer."), ("user", NOW, "/help")])
+        self.start_turn(transcript)
+        before = self.session("sess-stop-0004")
+        self.assertEqual(self.idle(transcript), "idle_prompt fixed: no answer")
+        state = self.session("sess-stop-0004")
+        self.assertEqual((state["state"], state["tasks"]), ("wrote", 0))
+        self.assertEqual((state["since"], state.get("summary")), (before["since"], before.get("summary")))
+        self.assertTrue(self.is_seen("sess-stop-0004"))
+        self.assertEqual(self.queued(), [])
+        self.assertIn("idle_prompt fixed: no answer", self.log_text())
+
+    def test_without_a_transcript_path_it_counts_as_no_answer(self):
+        self.start_turn("")
+        self.assertEqual(self.idle(""), "idle_prompt fixed: no answer")
+        self.assertEqual(self.session("sess-stop-0004")["state"], "wrote")
+
+    def test_a_row_that_is_not_thinking_is_left_alone(self):
+        transcript = self.write_transcript([("assistant", NOW + 30, "Done.")])
+        self.start_turn(transcript)
+        self.hook(now=NOW + 60).handle("stop", payload("payload_stop.json", transcript_path=transcript))
+        queued = len(self.queued())
+        before = self.session("sess-stop-0004")
+        self.assertEqual(self.idle(transcript, delay=120), "idle_prompt ignored")
+        self.assertEqual(self.session("sess-stop-0004"), before)
+        self.assertEqual(len(self.queued()), queued)
+        self.assertIn("idle_prompt ignored", self.log_text())
+
+    def test_a_session_without_a_row_is_left_alone(self):
+        self.assertEqual(self.idle(""), "idle_prompt ignored")
+        self.assertEqual(self.session_names(), [])
+
+    def test_running_background_tasks_keep_it_thinking(self):
+        import calendar
+        now = calendar.timegm(time.strptime("2026-11-14T12:05:00", "%Y-%m-%dT%H:%M:%S"))
+        transcript = fixture("transcript_bg_mixed.jsonl")
+        self.hook({"language": "en"}, now=now).handle(
+            "prompt", payload("payload_stop.json", prompt="Do it", transcript_path=transcript))
+        decision = self.hook(now=now + 30).handle(
+            "notification", payload("payload_idle.json", session_id="sess-stop-0004", transcript_path=transcript))
+        self.assertEqual(decision, "idle_prompt ignored")
+        self.assertEqual(self.session("sess-stop-0004")["state"], "thinking")
 
 
 class PopupStyle(HookTestCase):

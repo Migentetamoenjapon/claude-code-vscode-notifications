@@ -58,6 +58,51 @@ class Interrupts(unittest.TestCase):
         self.assertFalse(tp.was_interrupted("/nonexistent/x.jsonl"))
 
 
+class AssistantEntryAfter(unittest.TestCase):
+    def test_newest_assistant_entry_is_compared_with_the_time(self):
+        path = fixture("transcript_text.jsonl")  # last assistant entry: 2026-11-14T11:58:30.000Z
+        self.assertTrue(tp.assistant_entry_after(path, epoch("2026-11-14T11:58:00")))
+        self.assertTrue(tp.assistant_entry_after(path, epoch("2026-11-14T11:58:29")))
+        self.assertFalse(tp.assistant_entry_after(path, epoch("2026-11-14T11:58:30")))
+        self.assertFalse(tp.assistant_entry_after(path, epoch("2026-11-14T12:00:00")))
+
+    def test_fractions_of_a_second_count(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as f:
+            f.write('{"type":"assistant","message":{"content":[]},"timestamp":"2026-11-15T21:37:10.848Z"}\n')
+            path = f.name
+        self.addCleanup(os.remove, path)
+        base = epoch("2026-11-15T21:37:10")
+        self.assertTrue(tp.assistant_entry_after(path, base + 0.5))
+        self.assertFalse(tp.assistant_entry_after(path, base + 0.9))
+
+    def test_user_entries_and_unreadable_stamps_do_not_count(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as f:
+            f.write('{"type":"assistant","message":{"content":[]},"timestamp":"2026-11-15T10:00:00.000Z"}\n')
+            f.write('{"type":"user","message":{"content":"hi"},"timestamp":"2026-11-15T11:00:00.000Z"}\n')
+            f.write('{"type":"assistant","message":{"content":[]},"timestamp":"garbage"}\n')
+            f.write('{"type":"assistant","isSidechain":true,"message":{"content":[]},'
+                    '"timestamp":"2026-11-15T12:00:00.000Z"}\n')
+            f.write("not json\n")
+            path = f.name
+        self.addCleanup(os.remove, path)
+        self.assertTrue(tp.assistant_entry_after(path, epoch("2026-11-15T09:00:00")))
+        self.assertFalse(tp.assistant_entry_after(path, epoch("2026-11-15T10:30:00")))  # a user entry is no answer
+
+    def test_only_the_tail_is_read(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as f:
+            f.write('{"type":"assistant","message":{"content":[]},"timestamp":"2026-11-15T10:00:00.000Z"}\n')
+            f.write('{"type":"user","message":{"content":"%s"}}\n' % ("x" * 5000))
+            path = f.name
+        self.addCleanup(os.remove, path)
+        self.assertTrue(tp.assistant_entry_after(path, epoch("2026-11-15T09:00:00")))
+        self.assertFalse(tp.assistant_entry_after(path, epoch("2026-11-15T09:00:00"), max_bytes=1000))
+
+    def test_missing_file_and_bad_arguments(self):
+        self.assertFalse(tp.assistant_entry_after("/nonexistent/x.jsonl", 0))
+        self.assertFalse(tp.assistant_entry_after("", 0))
+        self.assertFalse(tp.assistant_entry_after(fixture("transcript_text.jsonl"), None))
+
+
 class BackgroundTasks(unittest.TestCase):
     def test_one_of_two_still_running(self):
         now = epoch("2026-11-14T12:05:00")
@@ -110,6 +155,16 @@ class Notifications(unittest.TestCase):
         self.assertEqual(c({"message": "Claude needs your permission to use Edit"}), "permission")
         self.assertIsNone(c({"message": "Claude is waiting for your input"}))
         self.assertIsNone(c({}))
+
+    def test_is_idle_notification(self):
+        idle = tp.is_idle_notification
+        self.assertTrue(idle({"notification_type": "idle_prompt", "message": "anything"}))
+        self.assertTrue(idle({"message": "Claude is waiting for your input"}))
+        self.assertFalse(idle({"message": "Claude is waiting for your input, please"}))
+        self.assertFalse(idle({"notification_type": "permission_prompt",
+                               "message": "Claude is waiting for your input"}))
+        self.assertFalse(idle({"notification_type": "auth_success"}))
+        self.assertFalse(idle({}))
 
     def test_permission_request_from_data(self):
         tool, detail = tp.permission_request({

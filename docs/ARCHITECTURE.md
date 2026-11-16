@@ -45,9 +45,9 @@ Nothing leaves the machine. No telemetry. No network calls except the optional m
 | Claude Code hook | Argument | What happens |
 |---|---|---|
 | `Stop` | `stop` | Popup "done" (unless background agents/workflows are still running in that session) |
-| `Notification` | `notification` | Popup only for `permission_prompt` → kind `permission`, `elicitation_*` → kind `question`, `agent_needs_input` → kind `agent`. Ignore `idle_prompt` and everything else. |
+| `Notification` | `notification` | Popup only for `permission_prompt` → kind `permission`, `elicitation_*` → kind `question`, `agent_needs_input` → kind `agent`. `idle_prompt` shows no popup: it only repairs a row left on "thinking" (see *Hooks*). Everything else is ignored. |
 | `UserPromptSubmit` | `prompt` | Menu bar: session → thinking. No popup. |
-| `SessionStart` | `session-start` | Menu bar: register session (and drop a previous session of the same Claude process, i.e. `/clear`). |
+| `SessionStart` | `session-start` | Menu bar: drop a previous session of the same Claude process (i.e. `/clear`). Creates no row. |
 | `SessionEnd` | `session-end` | Menu bar: remove session. |
 
 All hooks are registered with `"async": true, "timeout": 10` so they never slow Claude Code down.
@@ -198,6 +198,17 @@ These refine everything above. When in doubt, this section wins.
 - **Ordering:** every session-state write includes `updated_at` (= hook event time); writes take an exclusive `fcntl.flock`
   on `state/sessions/.lock` and skip if the stored `updated_at` is newer. Fixes async-hook races (e.g. a slow `stop`
   finishing after a fast `prompt`).
+- **One row per conversation:** a row is created by the session's own first `prompt`, `stop` or notification, never
+  by `SessionStart` (a session that is never used, or the agent view itself, would only clutter the menu). The
+  agent view's `agent_needs_input` relay never writes a row for the agent view's own session id: it sets the
+  job's own row (the one whose `focus.job` is that job and whose transcript exists) to "needs" with the question,
+  keeping its other fields, and the popup carries that session id. If the job has no row, the popup is still shown
+  and no row is written.
+- **Stuck "thinking" repair:** if a `Stop` never arrives, the row would say "thinking" forever. Claude Code sends
+  an `idle_prompt` notification about a minute after it goes idle; when the row is "thinking" and no background
+  tasks are running, `notify.py` turns it into "wrote": unseen, with the last assistant text as summary, if the
+  transcript has an assistant entry newer than the row's `since`; otherwise (e.g. a local slash command) marked
+  seen with the old summary. No popup, no sound. In any other case the notification is ignored.
 - **Fragile parsing isolated:** everything that depends on undocumented transcript/notification text (background-agent
   detection, "needs your input:" parsing, "permission to use" phrasing, interrupt markers) lives in
   `hooks/ccnotify_transcript.py` with unit tests on small sample transcripts in `tests/fixtures/`. Prefer documented hook

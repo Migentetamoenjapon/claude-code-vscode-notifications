@@ -4,9 +4,10 @@
     notify.py stop | notification | prompt | session-start | session-end      (hook JSON on stdin)
 
 - stop          popup "done" (unless background agents/workflows are still running in that session)
-- notification  popup only when Claude needs you: permission_prompt, elicitation_*, agent_needs_input
+- notification  popup only when Claude needs you: permission_prompt, elicitation_*, agent_needs_input;
+                an idle_prompt repairs a row left on "thinking" (no popup)
 - prompt        menu bar: session -> thinking
-- session-start menu bar: register the session (and drop the previous one of the same Claude process: /clear)
+- session-start menu bar: drop the previous session of the same Claude process (/clear); creates no row
 - session-end   menu bar: remove the session
 
 Popups are rendered by CCNotify.app: a JSON file is queued in state/queue/ and the app is opened with
@@ -71,7 +72,6 @@ STRINGS = {
         "permission_generic": "Asks for your permission",
         "needs_fallback": "Waiting for you to continue",
         "done_fallback": "Ready to read",
-        "new_session": "New session",
         "home": "Home",
         "label_done": "Done",
         "label_permission": "Needs permission",
@@ -83,7 +83,6 @@ STRINGS = {
         "permission_generic": "Pide tu permiso",
         "needs_fallback": "Te está esperando para seguir",
         "done_fallback": "Listo para leer",
-        "new_session": "Sesión nueva",
         "home": "Inicio",
         "label_done": "Terminó",
         "label_permission": "Pide permiso",
@@ -473,6 +472,38 @@ def job_by_name(jobs_dir, name):
     return best[0]
 
 
+def session_of_job(paths, job, exclude_sid):
+    """Id of the session that is the background job `job` itself, or "".
+
+    The agent view speaks for a job but is a session of its own; the job's record is the one with that job id in
+    its focus and a transcript that exists on disk. If several match, the most recently updated wins.
+    """
+    if not job:
+        return ""
+    best, best_at = "", -1.0
+    try:
+        names = os.listdir(paths.sessions)
+    except OSError:
+        return ""
+    for name in names:
+        if not name.endswith(".json"):
+            continue
+        data = read_json(os.path.join(paths.sessions, name))
+        sid = data.get("session")
+        sid = sid if isinstance(sid, str) and sid else name[:-len(".json")]
+        focus = data.get("focus")
+        if sid == exclude_sid or not isinstance(focus, dict) or focus.get("job") != job:
+            continue
+        transcript = data.get("transcript")
+        if not isinstance(transcript, str) or not os.path.isfile(transcript):
+            continue
+        updated = data.get("updated_at", 0)
+        updated = updated if isinstance(updated, (int, float)) else 0
+        if updated > best_at:
+            best, best_at = sid, updated
+    return best
+
+
 def recent_done_elsewhere(paths, question, own_sid, now, window=DEDUPE_WINDOW_SECONDS, job=""):
     """Does this agent_needs_input repeat a "done" that another session just announced?
 
@@ -603,11 +634,9 @@ class Hook(object):
         if event == "session-start":
             if pid:
                 drop_sessions_of_pid(paths, pid, sid, focus.get("job", ""))
-            if not os.path.exists(session_path(paths, sid)):
-                write_session(paths, sid, dict(base, state="wrote", since=self.now, tasks=0,
-                                               summary=tr(self.lang, "new_session"), request=""), self.now)
-                mark_seen(paths, sid, self.now)  # a brand-new session has nothing unread
-            return self.record(project, sid, event, "registered")
+            # No row yet: a session that is never used (or the agent view itself) would only clutter the menu.
+            # The first prompt, stop or own notification creates it.
+            return self.record(project, sid, event, "no row")
 
         if event == "prompt":
             request = "" if private else one_line(payload.get("prompt") or "", 160)
@@ -630,6 +659,8 @@ class Hook(object):
         kind = transcript_parser.classify_notification(payload)
         ntype = payload.get("notification_type") or "untyped"
         if kind is None:
+            if transcript_parser.is_idle_notification(payload):
+                return self.on_idle(project, sid, base)
             return self.record(project, sid, "notification", "%s ignored" % ntype)
         message = payload.get("message") or ""
         agent = ""
@@ -652,12 +683,45 @@ class Hook(object):
             text = message
         text = text.strip() or tr(self.lang, "needs_fallback")
         summary = "" if self.config["popup"]["private"] else one_line(text.replace("```", " "), 160)
-        written = write_session(self.paths, sid, dict(base, state="needs", since=self.now, summary=summary),
-                                self.now)
-        if not written:
+        shown_sid = sid
+        if kind == "agent":
+            # One row per conversation: the agent view never gets a row of its own (nothing would ever clear
+            # it). The question goes onto the job's own row, if it has one.
+            target = session_of_job(self.paths, job, sid)
+            if target:
+                if not write_session(self.paths, target, {"state": "needs", "since": self.now, "summary": summary},
+                                     self.now):
+                    return self.record(project, sid, "notification", "%s superseded" % ntype)
+                shown_sid = target  # closing the popup marks the job's row as seen
+        elif not write_session(self.paths, sid, dict(base, state="needs", since=self.now, summary=summary),
+                               self.now):
             return self.record(project, sid, "notification", "%s superseded" % ntype)
         title = "%s · %s" % (project, agent) if agent else project
-        return self.show(kind, title, text, project, sid, base, "notification", ntype)
+        return self.show(kind, title, text, project, shown_sid, base, "notification", ntype)
+
+    def on_idle(self, project, sid, base):
+        """Claude went idle but the row still says "thinking": its Stop hook never arrived. Repair the row.
+
+        No popup and no sound: this is bookkeeping, not news. Anything else (row not "thinking", background
+        tasks still running) is ignored as before.
+        """
+        transcript_path = base["transcript"]
+        record = read_session(self.paths, sid)
+        if record.get("state") != "thinking" or (
+                transcript_path and transcript_parser.running_background_tasks(transcript_path, self.now)):
+            return self.record(project, sid, "notification", "idle_prompt ignored")
+        since = record.get("since")
+        if isinstance(since, (int, float)) and transcript_parser.assistant_entry_after(transcript_path, since):
+            text = transcript_parser.last_assistant_text(transcript_path)
+            summary = "" if self.config["popup"]["private"] else one_line(text, 160)
+            if not write_session(self.paths, sid, {"state": "wrote", "since": self.now, "tasks": 0,
+                                                   "summary": summary}, self.now):
+                return self.record(project, sid, "notification", "idle_prompt superseded")
+            return self.record(project, sid, "notification", "idle_prompt fixed: answered without a stop")
+        if not write_session(self.paths, sid, {"state": "wrote", "tasks": 0}, self.now):
+            return self.record(project, sid, "notification", "idle_prompt superseded")
+        mark_seen(self.paths, sid, self.now)  # nothing was written: nothing unread
+        return self.record(project, sid, "notification", "idle_prompt fixed: no answer")
 
     # -- stop ---------------------------------------------------------------
 

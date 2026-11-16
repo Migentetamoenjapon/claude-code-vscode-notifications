@@ -123,6 +123,36 @@ def _parse_timestamp(value):
         return None
 
 
+_FRACTION_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)")
+
+
+def _parse_timestamp_precise(value):
+    """Epoch seconds (with the fraction) of an ISO UTC timestamp like "2026-11-15T21:37:10.848Z", or None."""
+    seconds = _parse_timestamp(value)
+    if seconds is None:
+        return None
+    match = _FRACTION_RE.match(value)
+    return seconds + float(match.group(1)) if match else float(seconds)
+
+
+def assistant_entry_after(path, since, max_bytes=1_000_000):
+    """Did the assistant write anything to this transcript after the epoch time `since`?
+
+    Looks at the newest assistant entry in the tail of the file (it can be hundreds of MB) and compares its
+    `timestamp`. False when there is none, or when it has no readable timestamp.
+    """
+    if not path or not isinstance(since, (int, float)):
+        return False
+    for line in reversed(read_tail_lines(path, max_bytes)):
+        entry = _loads(line)
+        if not entry or entry.get("type") != "assistant" or entry.get("isSidechain"):
+            continue
+        stamp = _parse_timestamp_precise(entry.get("timestamp"))
+        if stamp is not None:
+            return stamp > since
+    return False
+
+
 def running_background_tasks(transcript, now=None, max_silence=15 * 60, tail_mb=25):
     """Number of background agents/workflows launched in this session that are still working.
 
@@ -179,7 +209,7 @@ def classify_notification(payload):
     """Popup kind for a Notification hook payload, or None when it should be ignored.
 
     permission_prompt -> permission, elicitation_* -> question, agent_needs_input -> agent.
-    Everything else (idle_prompt, auth_success, quotas...) is ignored. Without `notification_type`
+    Everything else (idle_prompt, auth_success, quotas...) is ignored here; see is_idle_notification. Without `notification_type`
     (older Claude Code) only the permission wording is recognised.
     """
     ntype = payload.get("notification_type") or ""
@@ -195,6 +225,17 @@ def classify_notification(payload):
     if isinstance(message, str) and message.startswith("Claude needs your permission"):
         return "permission"
     return None
+
+
+def is_idle_notification(payload):
+    """Claude Code's "waiting for your input" notice, sent about a minute after it went idle.
+
+    `notification_type` "idle_prompt", or, without a type (older Claude Code), exactly that message.
+    """
+    ntype = payload.get("notification_type") or ""
+    if ntype:
+        return ntype == "idle_prompt"
+    return payload.get("message") == "Claude is waiting for your input"
 
 
 def permission_request(payload):
