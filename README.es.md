@@ -55,19 +55,14 @@ VS Code** de esa sesión, y un ícono en la barra de menú sigue todas tus sesio
 En una Mac, las tres formas habituales de usar Claude Code son la app de escritorio de Claude, el panel de Claude de
 la extensión de VS Code y el comando `claude` en una terminal. Este kit está hecho para la tercera, en la terminal
 integrada de VS Code. La app de escritorio y la terminal comparten el mismo motor, la misma configuración y los mismos
-hooks, y las dos llevan varias conversaciones en paralelo. Esto es lo que solo da la terminal:
+hooks, y las dos llevan varias conversaciones en paralelo. En esto se diferencian:
 
-1. **Claude es un proceso de tu shell.** Lo arrancas con los flags que quieras (`--allowedTools`,
-   `--output-format json`) y se combina con todo lo demás: `git diff | claude -p "revisa este cambio"` en una tubería,
-   un script, cron o CI. Es el mismo binario dentro de tmux, por SSH o en un contenedor. La app de escritorio es solo
-   interactiva.
-2. **Funciones que solo existen en la línea de comandos.** Los equipos de agentes, el modo de permisos `dontAsk` y
-   diálogos como `/permissions`. También las documentadas para la terminal: la línea de estado propia (un script tuyo
-   que recibe el JSON de la sesión por stdin) y las sesiones en segundo plano (`claude agents`, `claude attach`).
-3. **Cada sesión se puede alcanzar desde afuera.** Una sesión es un proceso con su PID, dentro de una terminal que
-   VS Code expone por su API de extensiones (`window.terminals`, `terminal.processId`, `terminal.show()`). Así este kit
-   relaciona el evento de un hook con la pestaña exacta y la trae al frente, o abre una pestaña nueva con
-   `claude attach <id>` para una sesión en segundo plano.
+| | En la terminal de VS Code | En la app de escritorio de Claude |
+|---|---|---|
+| **1. Claude es un comando** | Escribes `claude` en una terminal, así que también puede ser parte de algo más grande: un script, una tarea programada o una cadena como `git diff \| claude -p "revisa este cambio"`. El mismo comando funciona en un servidor por SSH. | Solo es interactiva: le hablas en una ventana y no se puede llamar desde un script. Tiene tareas programadas y sesiones por SSH, que se configuran desde sus propias pantallas. |
+| **2. Funciones solo de la línea de comandos** | Los equipos de agentes (varias sesiones de Claude coordinadas en una misma tarea), el modo de permisos `dontAsk` (solo corre lo que ya aprobaste, sin preguntar) y `/permissions` para editar las reglas de permisos desde la conversación. | No tiene equipos de agentes ni `dontAsk`. El modo de permisos se elige en un selector y `/permissions` no funciona ahí: las reglas se editan en la configuración. |
+| **3. Línea de estado y sesiones en segundo plano** | Una línea de estado que defines tú al pie de la terminal, y `claude agents` para ver y abrir las sesiones que corren en segundo plano. | El selector de modelo y la lista de sesiones son parte de la interfaz de la app; la línea de estado propia solo está documentada para la terminal. |
+| **4. Ir a la conversación exacta** | Cada conversación es una pestaña de terminal, y VS Code deja que una extensión encuentre esa pestaña y la traiga al frente. Por eso un clic en un aviso de este kit cae en la conversación correcta. | La app muestra su propia notificación cuando una sesión termina. No hay una pestaña de terminal a la que este kit pueda saltar. |
 
 La app de escritorio tiene lo suyo (revisión visual de los cambios, panel de navegador, sesiones en la nube) y puede
 trabajar sobre el mismo proyecto al mismo tiempo.

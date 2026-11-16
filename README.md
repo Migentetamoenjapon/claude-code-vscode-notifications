@@ -55,19 +55,14 @@ Wondering why VS Code and not the Claude desktop app? See [Why VS Code](#why-vs-
 On a Mac, the three usual ways to use Claude Code are the Claude desktop app, the Claude panel of the VS Code
 extension, and the `claude` command in a terminal. This kit is built for the third, in VS Code's integrated terminal.
 The desktop app and the terminal share one engine, the same settings and the same hooks, and both run several
-conversations in parallel. This is what only the terminal gives you:
+conversations in parallel. This is where they differ:
 
-1. **Claude is a process in your shell.** You start it with the flags you want (`--allowedTools`,
-   `--output-format json`) and it composes with everything else: `git diff | claude -p "review this change"` in a
-   pipe, a script, cron or CI. It is the same binary inside tmux, over SSH or in a container. The desktop app is
-   interactive only.
-2. **Features that exist only on the command line.** Agent teams, the `dontAsk` permission mode and dialogs such as
-   `/permissions`. Also the ones documented for the terminal: a custom status line (your own script, fed the
-   session's JSON on stdin) and background sessions (`claude agents`, `claude attach`).
-3. **Every session can be reached from outside.** A session is a process with a PID, inside a terminal that VS Code
-   exposes through its extension API (`window.terminals`, `terminal.processId`, `terminal.show()`). That is how this
-   kit maps a hook event to the exact tab and brings it to the front, or opens a new tab running `claude attach <id>`
-   for a background session.
+| | In the VS Code terminal | In the Claude desktop app |
+|---|---|---|
+| **1. Claude is a command** | You type `claude` in a terminal, so it can also be part of something bigger: a script, a scheduled job, or a chain like `git diff \| claude -p "review this change"`. The same command works on a server over SSH. | Interactive only: you talk to it in a window and it cannot be called from a script. It has scheduled tasks and SSH sessions, set up from its own screens. |
+| **2. Command-line-only features** | Agent teams (several Claude sessions coordinated on one task), the `dontAsk` permission mode (only what you already approved runs, with no prompts) and `/permissions` to edit permission rules from the conversation. | No agent teams and no `dontAsk`. The permission mode is picked from a selector and `/permissions` does not work there: rules are edited in the settings. |
+| **3. Status line and background sessions** | A status line you define yourself at the bottom of the terminal, and `claude agents` to see and open the sessions running in the background. | The model picker and the list of sessions are part of the app's interface; a custom status line is only documented for the terminal. |
+| **4. Jump to the exact conversation** | Each conversation is a terminal tab, and VS Code lets an extension find that tab and bring it to the front. That is why a click on one of this kit's popups lands on the right conversation. | The app shows its own notification when a session finishes. There is no terminal tab for this kit to jump to. |
 
 The desktop app has strengths of its own (visual review of changes, a browser pane, sessions in the cloud) and can
 work on the same project at the same time.
