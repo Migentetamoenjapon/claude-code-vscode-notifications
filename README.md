@@ -229,13 +229,15 @@ all). Changes apply from the next notification.
     "agent":      { "sound": "Purr",      "volume": 0.7 }
   },
   "quiet_hours": { "enabled": false, "from": "22:00", "to": "07:00" },
-  "events": { "done": true, "permission": true, "question": true, "agent": true }
+  "events": { "done": true, "permission": true, "question": true, "agent": true },
+  "project_names": {}
 }
 ```
 
 | Group | Key | What it does |
 |---|---|---|
 | General | `language` | `auto` (follows macOS), `en` or `es`. |
+| | `project_names` | Rename a project in popups, the menu bar, the status line and the terminal tab: folder name → label, e.g. `{ "long-repository-name": "repo" }`. Sessions in a Claude Code worktree (`<project>/.claude/worktrees/<name>`) already show the project's name, not the worktree's, with no setting needed. |
 | Popup look | `style` | `color` (default), `neutral` or `mono`. Anything else falls back to `color`. |
 | | `width`, `font_size` | Card width (pt) and text size. |
 | | `max_height_ratio` | Fraction of the screen height before the text scrolls. |

@@ -29,5 +29,6 @@
     "question": true,
     "agent": true
   },
-  "statusline": {}
+  "statusline": {},
+  "project_names": {}
 }

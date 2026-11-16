@@ -8,6 +8,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 HOOKS = os.path.join(HERE, "..", "hooks")
@@ -222,6 +223,62 @@ class ConfigAndHelpers(unittest.TestCase):
         self.assertFalse(notify.is_claude_process("/usr/local/bin/claude-helper"))
         self.assertFalse(notify.is_claude_process("/bin/zsh"))
         self.assertFalse(notify.is_claude_process("/usr/local/bin/node", "node /x/other-tool.js"))
+
+
+class ProjectName(HookTestCase):
+    def name(self, cwd, config=None, lang="en"):
+        cfg = dict(config or {}, language=lang)
+        return self.hook(cfg).project_name(cwd)
+
+    def test_plain_folder(self):
+        self.assertEqual(self.name("/work/my-app"), "my-app")
+        self.assertEqual(self.name("/work/my-app/"), "my-app")
+        self.assertEqual(self.name(""), "Claude")
+
+    def test_worktree_shows_the_project(self):
+        self.assertEqual(self.name("/work/my-app/.claude/worktrees/kit"), "my-app")
+        self.assertEqual(self.name("/work/my-app/.claude/worktrees/kit/"), "my-app")
+        self.assertEqual(self.name("/work/my-app/.claude/worktrees/kit/src"), "my-app")
+        self.assertEqual(self.name("/.claude/worktrees/kit"), "Claude")
+
+    def test_nickname_for_plain_and_worktree(self):
+        config = {"project_names": {"long-repository-name": "repo"}}
+        self.assertEqual(self.name("/work/long-repository-name", config), "repo")
+        self.assertEqual(self.name("/work/long-repository-name/.claude/worktrees/base", config), "repo")
+        self.assertEqual(self.name("/work/my-app", config), "my-app")  # no entry for it
+        self.assertEqual(self.name("/work/long-repository-name", {"project_names": {
+            "long-repository-name": "  repo  "}}), "repo")
+
+    def test_nickname_is_not_looked_up_by_worktree_name(self):
+        self.assertEqual(self.name("/work/my-app/.claude/worktrees/kit", {"project_names": {"kit": "x"}}),
+                         "my-app")
+
+    def test_home_keeps_the_localized_label(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = os.path.realpath(tmp)
+            with mock.patch.dict(os.environ, {"HOME": home}):
+                config = {"project_names": {os.path.basename(home): "nope"}}
+                self.assertEqual(self.name(home, config, "en"), "Home")
+                self.assertEqual(self.name(home + "/", config, "es"), "Inicio")
+                self.assertEqual(self.name(home + "/.claude/worktrees/kit", config, "en"), "Home")
+
+    def test_malformed_project_names_are_ignored(self):
+        for bad in ([("my-app", "x")], ["my-app"], 5, "my-app", None, True):
+            self.assertEqual(self.name("/work/my-app", {"project_names": bad}), "my-app", bad)
+        for bad in (5, ["x"], "", "   ", None, {"a": "b"}, True):
+            self.assertEqual(self.name("/work/my-app", {"project_names": {"my-app": bad}}), "my-app", bad)
+
+    def test_merge_keeps_the_users_mapping(self):
+        merged = notify.merge_config(notify.DEFAULT_CONFIG, {"project_names": {"a": "b"}})
+        self.assertEqual(merged["project_names"], {"a": "b"})
+        self.assertEqual(notify.merge_config(notify.DEFAULT_CONFIG, {})["project_names"], {})
+        self.assertEqual(notify.merge_config(notify.DEFAULT_CONFIG, {"project_names": [1]})["project_names"], {})
+
+    def test_popup_and_session_use_the_display_name(self):
+        hook = self.hook({"language": "en", "project_names": {"long-repository-name": "repo"}})
+        cwd = "/work/long-repository-name/.claude/worktrees/base"
+        hook.handle("prompt", payload("payload_stop.json", cwd=cwd, prompt="Fix it"))
+        self.assertEqual(self.session(payload("payload_stop.json")["session_id"])["project"], "repo")
 
 
 class StopEvent(HookTestCase):

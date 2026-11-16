@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "hooks"))
@@ -128,6 +129,39 @@ class FocusSession(unittest.TestCase):
         self.assertEqual(request["job"], "a3b56e59")
         self.assertEqual(request["cwd"], "/Users/you/my-project")
         self.assertIn("claude", request)  # absolute path, or "" when claude is not in a known place
+
+    def request_for(self, cwd, config=None):
+        if config is not None:
+            os.makedirs(self.home, exist_ok=True)
+            with open(os.path.join(self.home, "config.json"), "w", encoding="utf-8") as f:
+                json.dump(config, f)
+        fs.focus("com.microsoft.VSCode", cwd, 300, self.home, self.env, FakeRun(parents={300: 1}), job="a3b56e59")
+        with open(os.path.join(self.home, "state", "focus-request.json"), encoding="utf-8") as f:
+            return json.load(f)
+
+    def test_job_request_carries_the_project_name(self):
+        self.assertEqual(self.request_for("/work/my-app/.claude/worktrees/kit")["project"], "my-app")
+        self.assertEqual(self.request_for("/work/my-app/")["project"], "my-app")
+        names = {"project_names": {"long-repository-name": "repo"}}
+        self.assertEqual(self.request_for("/work/long-repository-name/.claude/worktrees/base", names)["project"],
+                         "repo")
+
+    def test_project_label_ignores_malformed_config(self):
+        for bad in ([1], 5, "x", {"my-app": 5}, {"my-app": ""}):
+            self.assertEqual(self.request_for("/work/my-app", {"project_names": bad})["project"], "my-app", bad)
+        with open(os.path.join(self.home, "config.json"), "w", encoding="utf-8") as f:
+            f.write("[not json")
+        self.assertEqual(self.request_for("/work/my-app")["project"], "my-app")
+        with open(os.path.join(self.home, "config.json"), "w", encoding="utf-8") as f:
+            f.write("[1, 2]")
+        self.assertEqual(self.request_for("/work/my-app")["project"], "my-app")
+
+    def test_home_folder_sends_no_project(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = os.path.realpath(tmp)
+            with mock.patch.dict(os.environ, {"HOME": home}):
+                self.assertNotIn("project", self.request_for(home))
+                self.assertNotIn("project", self.request_for(home + "/.claude/worktrees/kit"))
 
     def test_invalid_job_id_is_ignored(self):
         self.write_storage("Code", storage(["/Users/you/my-project"]))

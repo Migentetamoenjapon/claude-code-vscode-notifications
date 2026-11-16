@@ -63,6 +63,32 @@ class StatuslineTest(unittest.TestCase):
                             "seven_day": {"used_percentage": 45, "resets_at": now + 3 * 86400}},
         }
 
+    def project_of(self, project_dir, names=None):
+        cfg = {"language": "en"}
+        if names is not None:
+            cfg["project_names"] = names
+        self.write_config(cfg)
+        return self.run_script(json.dumps({"workspace": {"project_dir": project_dir},
+                                           "model": {"display_name": "Opus"}})).split(" ")[0]
+
+    def test_project_name_plain_worktree_and_slash(self):
+        self.assertEqual(self.project_of("/work/my-app"), "my-app")
+        self.assertEqual(self.project_of("/work/my-app/"), "my-app")
+        self.assertEqual(self.project_of("/work/my-app/.claude/worktrees/kit"), "my-app")
+        self.assertEqual(self.project_of("/work/my-app/.claude/worktrees/kit/"), "my-app")
+
+    def test_project_names_nicknames(self):
+        names = {"long-repository-name": "repo"}
+        self.assertEqual(self.project_of("/work/long-repository-name", names), "repo")
+        self.assertEqual(self.project_of("/work/long-repository-name/.claude/worktrees/base", names), "repo")
+        self.assertEqual(self.project_of("/work/my-app", names), "my-app")
+
+    def test_malformed_project_names_are_ignored(self):
+        for bad in ([1], 5, "repo", None):
+            self.assertEqual(self.project_of("/work/my-app", bad), "my-app", bad)
+        for bad in (5, ["x"], "", "  ", None):
+            self.assertEqual(self.project_of("/work/my-app", {"my-app": bad}), "my-app", bad)
+
     def test_minimal_input(self):
         out = self.run_script(json.dumps({"model": {"display_name": "Opus"}}))
         self.assertIn("Opus", out)

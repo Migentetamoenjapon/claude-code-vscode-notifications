@@ -6,7 +6,7 @@ const path = require("path");
 
 const load = Module._load;
 Module._load = (request, ...rest) => (request === "vscode" ? {} : load(request, ...rest));
-const { isAttachedTo, processTable } = require(path.join(__dirname, "..", "vscode-extension", "extension.js"));
+const { isAttachedTo, processTable, projectName } = require(path.join(__dirname, "..", "vscode-extension", "extension.js"));
 
 const table = new Map([
   [100, { ppid: 1, command: "/Users/you/.local/bin/claude attach aaaa1111" }], // opened by a click, still there
@@ -23,6 +23,24 @@ assert.strictEqual(isAttachedTo(table, 200, "bbbb2222"), false, "a terminal that
 assert.strictEqual(isAttachedTo(table, 300, "cccc3333"), true, "a command started from the terminal's shell counts");
 assert.strictEqual(isAttachedTo(table, 400, "aaaa1111"), false);
 assert.strictEqual(isAttachedTo(table, 999, "aaaa1111"), false);
+
+// Terminal tab name: the project name from CCNotify, else the project folder of cwd (worktree-aware).
+const os = require("os");
+assert.strictEqual(projectName({ project: "repo", cwd: "/work/my-app" }), "repo");
+assert.strictEqual(projectName({ project: "  repo  " }), "repo");
+assert.strictEqual(projectName({ project: "a\u0000b\nc\u009fd" }), "a b c d", "control characters are removed");
+assert.strictEqual(projectName({ project: "x".repeat(200) }).length, 60);
+assert.strictEqual(projectName({ cwd: "/work/my-app" }), "my-app");
+assert.strictEqual(projectName({ cwd: "/work/my-app/" }), "my-app");
+assert.strictEqual(projectName({ cwd: "/work/my-app/.claude/worktrees/kit" }), "my-app");
+assert.strictEqual(projectName({ cwd: "/work/my-app/.claude/worktrees/kit/" }), "my-app");
+assert.strictEqual(projectName({ project: "", cwd: "/work/my-app" }), "my-app", "empty project falls back");
+assert.strictEqual(projectName({ project: "   ", cwd: "/work/my-app" }), "my-app");
+assert.strictEqual(projectName({ project: 5, cwd: "/work/my-app" }), "my-app", "non-string project is ignored");
+assert.strictEqual(projectName({ project: ["x"], cwd: "/work/my-app" }), "my-app");
+assert.strictEqual(projectName({}), "Claude");
+assert.strictEqual(projectName({ cwd: os.homedir() }), "Claude", "the account name is never shown");
+assert.strictEqual(projectName({ cwd: os.homedir() + "/.claude/worktrees/kit" }), "Claude");
 
 processTable().then((real) => {
   assert.ok(real.size > 0, "ps returned no processes");

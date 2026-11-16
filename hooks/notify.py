@@ -64,6 +64,7 @@ DEFAULT_CONFIG = {
     "quiet_hours": {"enabled": False, "from": "22:00", "to": "07:00"},
     "events": {"done": True, "permission": True, "question": True, "agent": True},
     "statusline": {},
+    "project_names": {},          # folder name -> label shown for that project, e.g. {"long-repository-name": "repo"}
 }
 
 STRINGS = {
@@ -120,6 +121,29 @@ class Paths(object):
         self.active = os.path.join(self.state, "active")
         self.lock = os.path.join(self.sessions, ".lock")
         self.log = os.path.join(self.state, "ccnotify.log")
+
+
+WORKTREE_MARK = "/.claude/worktrees/"
+
+
+def project_folder(cwd):
+    """The project folder of a session folder: a Claude Code worktree (<project>/.claude/worktrees/<name>)
+    stands for the project it belongs to. Trailing slashes are dropped."""
+    trimmed = str(cwd or "").rstrip("/")
+    cut = trimmed.find(WORKTREE_MARK)
+    if cut >= 0:
+        trimmed = trimmed[:cut]
+    return trimmed.rstrip("/")
+
+
+def display_name(folder, names=None):
+    """The folder's own name, or the label the user gave it in `project_names` (bad entries are ignored).
+    Kept in step with statusline/statusline.py and hooks/focus_session.py."""
+    base = os.path.basename(folder)
+    nick = names.get(base) if isinstance(names, dict) else None
+    if isinstance(nick, str) and nick.strip():
+        return nick.strip()
+    return base
 
 
 def _compatible(default, value):
@@ -594,12 +618,12 @@ class Hook(object):
         return self._pid
 
     def project_name(self, cwd):
-        trimmed = cwd.rstrip("/")
-        if not trimmed:
+        folder = project_folder(cwd)
+        if not folder:
             return "Claude"
-        if os.path.realpath(trimmed) == os.path.realpath(os.path.expanduser("~")):
+        if os.path.realpath(folder) == os.path.realpath(os.path.expanduser("~")):
             return tr(self.lang, "home")  # do not show the macOS account name
-        return os.path.basename(trimmed) or "Claude"
+        return display_name(folder, self.config.get("project_names")) or "Claude"
 
     def handle(self, event, payload):
         """Run one hook event; returns the decision string that was logged."""

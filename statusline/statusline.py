@@ -72,9 +72,13 @@ def obj(parent, key):
 
 def load_config():
     cfg = dict(DEFAULTS)
+    cfg["project_names"] = {}
     raw = read_json(os.path.join(HOME, "config.json"))
     if not isinstance(raw, dict):
         return cfg, "auto"
+    names = raw.get("project_names")
+    if isinstance(names, dict):
+        cfg["project_names"] = names
     section = raw.get("statusline")
     if isinstance(section, dict):
         for key in DEFAULTS:
@@ -90,6 +94,24 @@ def load_config():
         cfg["ticker"] = ""
     lang = raw.get("language")
     return cfg, lang if isinstance(lang, str) else "auto"
+
+
+WORKTREE_MARK = "/.claude/worktrees/"
+
+
+def project_label(path, names=None):
+    """Name of the project folder. A Claude Code worktree (<project>/.claude/worktrees/<name>) shows the
+    project it belongs to; `project_names` in the config can give a folder a shorter label.
+    Kept in step with hooks/notify.py."""
+    folder = str(path or "").rstrip("/")
+    cut = folder.find(WORKTREE_MARK)
+    if cut >= 0:
+        folder = folder[:cut].rstrip("/")
+    base = os.path.basename(folder)
+    nick = names.get(base) if isinstance(names, dict) else None
+    if isinstance(nick, str) and nick.strip():
+        return nick.strip()
+    return base or str(path)
 
 
 def write_json(path, obj):
@@ -447,7 +469,7 @@ def build(data):
     # project and model
     ws = obj(data, "workspace")
     project_dir = ws.get("project_dir") or ws.get("current_dir") or os.getcwd()
-    project = os.path.basename(str(project_dir).rstrip("/")) or str(project_dir)
+    project = project_label(project_dir, cfg.get("project_names"))
     model = obj(data, "model").get("display_name") or "?"
     if data.get("fast_mode"):
         model += " ⚡"

@@ -35,7 +35,7 @@ Nothing leaves the machine. No telemetry. No network calls except the optional m
 | Popup queue | `state/queue/<uuid>.json` (popup deletes the file after reading it) |
 | Active popups (stacking) | `state/active/<session-short-id>__<pid>` containing `"<created-epoch> <height>"` |
 | Session states (menu bar) | `state/sessions/<session-id>.json` |
-| Focus request | `state/focus-request.json` → `{"at": <epoch seconds>, "pids": [<claude pid>, <its parents>...]}`; for a background session also `"job"`, `"cwd"` and `"claude"` (path of the command, or `""`) |
+| Focus request | `state/focus-request.json` → `{"at": <epoch seconds>, "pids": [<claude pid>, <its parents>...]}`; for a background session also `"job"`, `"cwd"`, `"claude"` (path of the command, or `""`) and `"project"` (label for the terminal tab; omitted for the home folder) |
 | Decision log (no message text) | `state/ccnotify.log` (rotated at 1 MB) |
 | Statusline | `~/.claude/ccnotify/statusline/statusline.py` |
 | Statusline cache | `~/.claude/ccnotify/state/statusline/` |
@@ -81,9 +81,16 @@ stripe on one side of the card).
   },
   "quiet_hours": { "enabled": false, "from": "22:00", "to": "07:00" },   // sounds muted, popups still shown
   "events": { "done": true, "permission": true, "question": true, "agent": true },  // turn popups on/off per kind
-  "statusline": { }                   // see docs/statusline.md
+  "statusline": { },                  // see docs/statusline.md
+  "project_names": { }                // folder name → label, e.g. {"long-repository-name": "repo"}
 }
 ```
+
+Project label (popup title, menu bar, status line, terminal tab): the folder name of the session's cwd, where a
+Claude Code worktree (`<project>/.claude/worktrees/<name>`) stands for its `<project>`, trailing slash dropped. The
+home folder shows the localized "Home" label (never the macOS account name). Then `project_names[<folder name>]`
+replaces it when it is a non-empty string; anything else in `project_names` is ignored. The rule lives in
+`notify.py`, `statusline.py` and `focus_session.py`; keep them in step.
 
 `only_when_away`: play the sound only when the app hosting the session (e.g. VS Code) is not the frontmost app.
 

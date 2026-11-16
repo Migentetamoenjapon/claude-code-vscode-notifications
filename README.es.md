@@ -230,13 +230,15 @@ las tiene todas). Los cambios se aplican desde el siguiente aviso.
     "agent":      { "sound": "Purr",      "volume": 0.7 }
   },
   "quiet_hours": { "enabled": false, "from": "22:00", "to": "07:00" },
-  "events": { "done": true, "permission": true, "question": true, "agent": true }
+  "events": { "done": true, "permission": true, "question": true, "agent": true },
+  "project_names": {}
 }
 ```
 
 | Grupo | Clave | Qué hace |
 |---|---|---|
 | General | `language` | `auto` (sigue a macOS), `en` o `es`. |
+| | `project_names` | Cambia el nombre de un proyecto en los avisos, la barra de menú, la línea de estado y la pestaña de la terminal: nombre de la carpeta → etiqueta, por ejemplo `{ "long-repository-name": "repo" }`. Las sesiones en un worktree de Claude Code (`<proyecto>/.claude/worktrees/<nombre>`) ya muestran el nombre del proyecto y no el del worktree, sin configurar nada. |
 | Cómo se ve | `style` | `color` (por defecto), `neutral` o `mono`. Cualquier otro valor se trata como `color`. |
 | | `width`, `font_size` | Ancho de la tarjeta (pt) y tamaño de letra. |
 | | `max_height_ratio` | Fracción del alto de la pantalla antes de que haya scroll. |

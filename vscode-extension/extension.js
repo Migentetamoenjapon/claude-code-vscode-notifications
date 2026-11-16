@@ -2,7 +2,8 @@
 //
 // Every editor window runs its own copy and watches a request file:
 //   <CCNOTIFY_HOME>/state/focus-request.json
-//   -> {"at": <epoch seconds>, "pids": [<pid>, ...], "job"?: "<id>", "cwd"?: "...", "claude"?: "<path>"}
+//   -> {"at": <epoch seconds>, "pids": [<pid>, ...], "job"?: "<id>", "cwd"?: "...", "claude"?: "<path>",
+//       "project"?: "<name for the terminal tab>"}
 // written by hooks/focus_session.py when you click a popup or a menu bar item; "pids" is the Claude Code
 // process and its parents. The window that owns a terminal whose shell is in that list handles it:
 //   - Normal session: shows that terminal (opens the panel if it was closed and gives it focus).
@@ -31,6 +32,20 @@ const BUNDLE_IDS = {
 };
 const MAX_AGE_SECONDS = 10;
 const JOB_ID = /^[A-Za-z0-9_-]{4,40}$/;
+const WORKTREE_MARK = "/.claude/worktrees/";
+
+/** Name for a terminal tab: the project name CCNotify computed (request.project), else the name of the
+ *  project folder of request.cwd (a Claude Code worktree stands for the project it belongs to). */
+function projectName(request) {
+  const given = request && typeof request.project === "string"
+    ? request.project.replace(/[\u0000-\u001f\u007f-\u009f]/g, " ").trim().slice(0, 60).trim() : "";
+  if (given) return given;
+  let folder = request && request.cwd ? String(request.cwd).replace(/\/+$/, "") : "";
+  const cut = folder.indexOf(WORKTREE_MARK);
+  if (cut >= 0) folder = folder.slice(0, cut).replace(/\/+$/, "");
+  if (!folder || folder === os.homedir()) return "Claude"; // never show the macOS account name
+  return path.basename(folder) || "Claude";
+}
 
 function requestFiles() {
   const homes = [];
@@ -98,8 +113,7 @@ function activate(context) {
     }
     const tag = `(${job})`;
     const cwd = request.cwd && fs.existsSync(String(request.cwd)) ? String(request.cwd) : undefined;
-    const project = request.cwd ? path.basename(String(request.cwd)) : "Claude";
-    const name = `${project} ${tag}`;
+    const name = `${projectName(request)} ${tag}`;
     const iconPath = new vscode.ThemeIcon("comment-discussion");
     const claude = typeof request.claude === "string" ? request.claude : "";
     let terminal;
@@ -155,4 +169,4 @@ function activate(context) {
 
 function deactivate() {}
 
-module.exports = { activate, deactivate, processTable, isAttachedTo };
+module.exports = { activate, deactivate, processTable, isAttachedTo, projectName };

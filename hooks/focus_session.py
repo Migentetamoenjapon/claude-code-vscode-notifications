@@ -6,7 +6,8 @@
 Two steps:
 
 1. With a PID, leave a request in state/focus-request.json (`{"at": <epoch>, "pids": [<claude pid>, its
-   parents...]}`, written atomically). The CCNotify "Focus Terminal" extension, running in every window of
+   parents...]}`, written atomically; for a background session also `job`, `cwd`, `claude` and `project`, the
+   name shown on the terminal tab). The CCNotify "Focus Terminal" extension, running in every window of
    VS Code and its forks, looks for the terminal whose shell is in that list, shows it and raises its window.
 2. Ask macOS to open the most specific folder the editor already has open that contains `cwd`
    (`open -b <host> <folder>`): if a window already has it, the editor just focuses it, no new window.
@@ -74,6 +75,29 @@ def process_chain(pid, run=subprocess.run, limit=15):
 
 
 JOB_ID = re.compile(r"^[A-Za-z0-9_-]{4,40}$")
+WORKTREE_MARK = "/.claude/worktrees/"
+
+
+def project_label(cwd, home):
+    """Name for the terminal tab of a background session: the project folder (a Claude Code worktree stands
+    for its project), or the label given in `project_names` in config.json. "" when there is nothing to show
+    (the extension then falls back to the folder name). Kept in step with hooks/notify.py."""
+    folder = str(cwd or "").rstrip("/")
+    cut = folder.find(WORKTREE_MARK)
+    if cut >= 0:
+        folder = folder[:cut].rstrip("/")
+    if not folder or os.path.realpath(folder) == os.path.realpath(os.path.expanduser("~")):
+        return ""  # the home folder is named after the macOS account: never show it
+    base = os.path.basename(folder)
+    try:
+        with open(os.path.join(home, "config.json"), encoding="utf-8") as f:
+            names = json.load(f).get("project_names")
+    except (OSError, ValueError, AttributeError):
+        names = None
+    nick = names.get(base) if isinstance(names, dict) else None
+    if isinstance(nick, str) and nick.strip():
+        return nick.strip()
+    return base
 
 
 def claude_path(env=None):
@@ -101,6 +125,9 @@ def request_terminal(home, pid, run=subprocess.run, now=None, job="", cwd="", en
     request = {"at": time.time() if now is None else now, "pids": pids}
     if job and JOB_ID.match(job):
         request.update(job=job, cwd=cwd, claude=claude_path(env))
+        project = project_label(cwd, home)
+        if project:
+            request["project"] = project
     state = os.path.join(home, "state")
     target = os.path.join(state, "focus-request.json")
     tmp = "%s.%d.tmp" % (target, os.getpid())
