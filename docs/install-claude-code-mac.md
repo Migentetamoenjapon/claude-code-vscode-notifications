@@ -151,7 +151,7 @@ For options (sounds, quiet hours, popup size, the status line), see the [README]
 - Python from python.org. The one from the Command Line Tools is enough.
 - Node.js, for the current installer.
 - An Anthropic API key. You log in with your Claude account.
-- The Claude desktop app.
+- The Claude desktop app. It is a good option too; see [why some people prefer VS Code](../README.md#why-vs-code).
 
 ## If something fails
 

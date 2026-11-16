@@ -18,10 +18,12 @@ session, and a menu bar icon tracks all your sessions. Local only, built on Clau
 | **Have never used Claude Code** | **[Set up Claude Code in VS Code on a Mac, step by step](docs/install-claude-code-mac.md)** — from zero: the account, VS Code, Claude Code, your first conversation, and this kit at the end. About 30 minutes, no terminal experience needed. |
 | **Already use Claude Code in VS Code** | **[Install](#install)** — three lines in the terminal. |
 
+Wondering why VS Code and not the Claude desktop app? See [Why VS Code](#why-vs-code).
+
 ## Contents
 
 1. [Start here](#start-here) — the step-by-step setup guide
-2. [What's inside](#whats-inside)
+2. [What's inside](#whats-inside) · [Why VS Code](#why-vs-code)
 3. [Popups](#1-popups)
 4. [Styles](#2-styles)
 5. [Long messages and several at once](#3-long-messages-and-several-at-once)
@@ -47,6 +49,25 @@ session, and a menu bar icon tracks all your sessions. Local only, built on Clau
 | | **Languages** | English and Spanish. |
 
 **Every piece is optional**: take only the ones you want — see [Pick what you want](#pick-what-you-want).
+
+## Why VS Code
+
+Claude Code runs in three places: the Claude desktop app, the Claude panel of the VS Code extension, and plain
+`claude` in a terminal. This kit is built for the third one, inside VS Code's integrated terminal. Seeing the code is
+the obvious reason to be in an editor; these are the other reasons some people prefer it:
+
+- **Each conversation is a terminal tab, inside the window of its project.** Name the tabs, split them side by side,
+  keep your own commands or a local server in the tab next to Claude. With one window per project, ten conversations
+  don't get mixed up — and that is what lets this kit take you to the exact one.
+- **The complete command line.** Some features are made for the terminal: your own status line, `claude -p` for
+  scripts and automation, agent teams, background sessions with `claude agents`. In a terminal you have all of them.
+- **What Claude makes opens right there.** Markdown preview, images, the file tree and the history of each file are
+  built in; extensions add the rest.
+- **It is the same `claude` everywhere.** The command, the settings and the habits are the same in Terminal, iTerm2,
+  Cursor, Windsurf or a server over SSH, and VS Code is free. What you set up once goes with you.
+
+The desktop app is a good choice too: it is the same engine, with the same settings and hooks, and it adds visual
+review of changes and parallel sessions in one window. You can use both on the same project.
 
 ---
 

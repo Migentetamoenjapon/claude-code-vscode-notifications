@@ -18,10 +18,12 @@ VS Code** de esa sesión, y un ícono en la barra de menú sigue todas tus sesio
 | **Nunca has usado Claude Code** | **[Configurar Claude Code en VS Code en una Mac, paso a paso](docs/install-claude-code-mac.es.md)** — desde cero: la cuenta, VS Code, Claude Code, tu primera conversación y, al final, este kit. Unos 30 minutos, sin saber nada de terminales. |
 | **Ya usas Claude Code en VS Code** | **[Instalar](#instalar)** — tres líneas en la terminal. |
 
+¿Te preguntas por qué VS Code y no la app de escritorio de Claude? Mira [Por qué VS Code](#por-qué-vs-code).
+
 ## Contenido
 
 1. [Empieza aquí](#empieza-aquí) — la guía paso a paso
-2. [Qué trae](#qué-trae)
+2. [Qué trae](#qué-trae) · [Por qué VS Code](#por-qué-vs-code)
 3. [Avisos](#1-avisos)
 4. [Estilos](#2-estilos)
 5. [Mensajes largos y varios a la vez](#3-mensajes-largos-y-varios-a-la-vez)
@@ -47,6 +49,27 @@ VS Code** de esa sesión, y un ícono en la barra de menú sigue todas tus sesio
 | | **Idiomas** | Inglés y español. |
 
 **Todas las piezas son opcionales**: toma solo las que quieras; mira [Elige lo que quieres](#elige-lo-que-quieres).
+
+## Por qué VS Code
+
+Claude Code se puede usar en tres lugares: la app de escritorio de Claude, el panel de Claude de la extensión de
+VS Code y `claude` a secas en una terminal. Este kit está hecho para el tercero, dentro de la terminal integrada de
+VS Code. Ver el código es la razón obvia para estar en un editor; estas son las otras por las que algunas personas lo
+prefieren:
+
+- **Cada conversación es una pestaña de terminal, dentro de la ventana de su proyecto.** Les pones nombre, las divides
+  lado a lado y dejas tus propios comandos o un servidor local en la pestaña de al lado. Con una ventana por proyecto,
+  diez conversaciones no se mezclan, y por eso este kit puede llevarte a la exacta.
+- **La línea de comandos completa.** Hay funciones pensadas para la terminal: tu propia línea de estado, `claude -p`
+  para scripts y automatizaciones, los equipos de agentes y las sesiones en segundo plano con `claude agents`. En una
+  terminal las tienes todas.
+- **Lo que Claude produce se abre ahí mismo.** La vista previa de Markdown, las imágenes, el árbol de archivos y el
+  historial de cada archivo ya vienen incluidos; las extensiones agregan el resto.
+- **Es el mismo `claude` en todas partes.** El comando, la configuración y las costumbres son iguales en Terminal,
+  iTerm2, Cursor, Windsurf o un servidor por SSH, y VS Code es gratis. Lo que configuras una vez te acompaña.
+
+La app de escritorio también es buena opción: es el mismo motor, con la misma configuración y los mismos hooks, y suma
+revisión visual de los cambios y varias sesiones en una sola ventana. Puedes usar las dos en el mismo proyecto.
 
 ---
 

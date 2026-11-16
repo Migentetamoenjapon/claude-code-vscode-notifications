@@ -154,7 +154,8 @@ consulta el [README](../README.md).
 - Python de python.org. Con el de las herramientas de línea de comandos basta.
 - Node.js, para el instalador actual.
 - Una clave de API de Anthropic. Inicias sesión con tu cuenta de Claude.
-- La app de escritorio de Claude.
+- La app de escritorio de Claude. También es buena opción; mira
+  [por qué algunas personas prefieren VS Code](../README.es.md#por-qué-vs-code).
 
 ## Si algo falla
 
