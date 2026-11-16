@@ -52,7 +52,7 @@ Wondering why VS Code and not the Claude desktop app? See [Why VS Code](#why-vs-
 
 ## Why VS Code
 
-Claude Code runs in three places: the Claude desktop app, the Claude panel of the VS Code extension, and plain
+On a Mac, the three usual ways to use Claude Code are the Claude desktop app, the Claude panel of the VS Code extension, and plain
 `claude` in a terminal. This kit is built for the third one, inside VS Code's integrated terminal. Seeing the code is
 the obvious reason to be in an editor; these are the other reasons some people prefer it:
 

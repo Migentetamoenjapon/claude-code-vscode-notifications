@@ -52,8 +52,8 @@ VS Code** de esa sesión, y un ícono en la barra de menú sigue todas tus sesio
 
 ## Por qué VS Code
 
-Claude Code se puede usar en tres lugares: la app de escritorio de Claude, el panel de Claude de la extensión de
-VS Code y `claude` a secas en una terminal. Este kit está hecho para el tercero, dentro de la terminal integrada de
+En una Mac, las tres formas habituales de usar Claude Code son la app de escritorio de Claude, el panel de Claude de la extensión de
+VS Code y `claude` a secas en una terminal. Este kit está hecho para la tercera, dentro de la terminal integrada de
 VS Code. Ver el código es la razón obvia para estar en un editor; estas son las otras por las que algunas personas lo
 prefieren:
 
