@@ -52,24 +52,25 @@ VS Code** de esa sesión, y un ícono en la barra de menú sigue todas tus sesio
 
 ## Por qué VS Code
 
-En una Mac, las tres formas habituales de usar Claude Code son la app de escritorio de Claude, el panel de Claude de la extensión de
-VS Code y `claude` a secas en una terminal. Este kit está hecho para la tercera, dentro de la terminal integrada de
-VS Code. Ver el código es la razón obvia para estar en un editor; estas son las otras por las que algunas personas lo
-prefieren:
+En una Mac, las tres formas habituales de usar Claude Code son la app de escritorio de Claude, el panel de Claude de
+la extensión de VS Code y el comando `claude` en una terminal. Este kit está hecho para la tercera, en la terminal
+integrada de VS Code. La app de escritorio y la terminal comparten el mismo motor, la misma configuración y los mismos
+hooks, y las dos llevan varias conversaciones en paralelo. Esto es lo que solo da la terminal:
 
-- **Cada conversación es una pestaña de terminal, dentro de la ventana de su proyecto.** Les pones nombre, las divides
-  lado a lado y dejas tus propios comandos o un servidor local en la pestaña de al lado. Con una ventana por proyecto,
-  diez conversaciones no se mezclan, y por eso este kit puede llevarte a la exacta.
-- **La línea de comandos completa.** Hay funciones pensadas para la terminal: tu propia línea de estado, `claude -p`
-  para scripts y automatizaciones, los equipos de agentes y las sesiones en segundo plano con `claude agents`. En una
-  terminal las tienes todas.
-- **Lo que Claude produce se abre ahí mismo.** La vista previa de Markdown, las imágenes, el árbol de archivos y el
-  historial de cada archivo ya vienen incluidos; las extensiones agregan el resto.
-- **Es el mismo `claude` en todas partes.** El comando, la configuración y las costumbres son iguales en Terminal,
-  iTerm2, Cursor, Windsurf o un servidor por SSH, y VS Code es gratis. Lo que configuras una vez te acompaña.
+1. **Claude es un proceso de tu shell.** Lo arrancas con los flags que quieras (`--allowedTools`,
+   `--output-format json`) y se combina con todo lo demás: `git diff | claude -p "revisa este cambio"` en una tubería,
+   un script, cron o CI. Es el mismo binario dentro de tmux, por SSH o en un contenedor. La app de escritorio es solo
+   interactiva.
+2. **Funciones que solo existen en la línea de comandos.** Los equipos de agentes, el modo de permisos `dontAsk` y
+   diálogos como `/permissions`. También las documentadas para la terminal: la línea de estado propia (un script tuyo
+   que recibe el JSON de la sesión por stdin) y las sesiones en segundo plano (`claude agents`, `claude attach`).
+3. **Cada sesión se puede alcanzar desde afuera.** Una sesión es un proceso con su PID, dentro de una terminal que
+   VS Code expone por su API de extensiones (`window.terminals`, `terminal.processId`, `terminal.show()`). Así este kit
+   relaciona el evento de un hook con la pestaña exacta y la trae al frente, o abre una pestaña nueva con
+   `claude attach <id>` para una sesión en segundo plano.
 
-La app de escritorio también es buena opción: es el mismo motor, con la misma configuración y los mismos hooks, y suma
-revisión visual de los cambios y varias sesiones en una sola ventana. Puedes usar las dos en el mismo proyecto.
+La app de escritorio tiene lo suyo (revisión visual de los cambios, panel de navegador, sesiones en la nube) y puede
+trabajar sobre el mismo proyecto al mismo tiempo.
 
 ---
 

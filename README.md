@@ -52,22 +52,25 @@ Wondering why VS Code and not the Claude desktop app? See [Why VS Code](#why-vs-
 
 ## Why VS Code
 
-On a Mac, the three usual ways to use Claude Code are the Claude desktop app, the Claude panel of the VS Code extension, and plain
-`claude` in a terminal. This kit is built for the third one, inside VS Code's integrated terminal. Seeing the code is
-the obvious reason to be in an editor; these are the other reasons some people prefer it:
+On a Mac, the three usual ways to use Claude Code are the Claude desktop app, the Claude panel of the VS Code
+extension, and the `claude` command in a terminal. This kit is built for the third, in VS Code's integrated terminal.
+The desktop app and the terminal share one engine, the same settings and the same hooks, and both run several
+conversations in parallel. This is what only the terminal gives you:
 
-- **Each conversation is a terminal tab, inside the window of its project.** Name the tabs, split them side by side,
-  keep your own commands or a local server in the tab next to Claude. With one window per project, ten conversations
-  don't get mixed up — and that is what lets this kit take you to the exact one.
-- **The complete command line.** Some features are made for the terminal: your own status line, `claude -p` for
-  scripts and automation, agent teams, background sessions with `claude agents`. In a terminal you have all of them.
-- **What Claude makes opens right there.** Markdown preview, images, the file tree and the history of each file are
-  built in; extensions add the rest.
-- **It is the same `claude` everywhere.** The command, the settings and the habits are the same in Terminal, iTerm2,
-  Cursor, Windsurf or a server over SSH, and VS Code is free. What you set up once goes with you.
+1. **Claude is a process in your shell.** You start it with the flags you want (`--allowedTools`,
+   `--output-format json`) and it composes with everything else: `git diff | claude -p "review this change"` in a
+   pipe, a script, cron or CI. It is the same binary inside tmux, over SSH or in a container. The desktop app is
+   interactive only.
+2. **Features that exist only on the command line.** Agent teams, the `dontAsk` permission mode and dialogs such as
+   `/permissions`. Also the ones documented for the terminal: a custom status line (your own script, fed the
+   session's JSON on stdin) and background sessions (`claude agents`, `claude attach`).
+3. **Every session can be reached from outside.** A session is a process with a PID, inside a terminal that VS Code
+   exposes through its extension API (`window.terminals`, `terminal.processId`, `terminal.show()`). That is how this
+   kit maps a hook event to the exact tab and brings it to the front, or opens a new tab running `claude attach <id>`
+   for a background session.
 
-The desktop app is a good choice too: it is the same engine, with the same settings and hooks, and it adds visual
-review of changes and parallel sessions in one window. You can use both on the same project.
+The desktop app has strengths of its own (visual review of changes, a browser pane, sessions in the cloud) and can
+work on the same project at the same time.
 
 ---
 
