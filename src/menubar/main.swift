@@ -18,7 +18,8 @@
 //                                                   written by the status line (optional: no file, no "Limits" block)
 // A session counts as seen when seen >= since (a json "seen": true is also honored). Sessions with a newer-or-equal
 // tombstone in state/ended/ are hidden. CCNOTIFY_HOME defaults to $CLAUDE_CONFIG_DIR/ccnotify (~/.claude/ccnotify).
-// Language: "language" in config.json ("auto" | "en" | "es"); "popup.style": "mono" turns the panel grayscale.
+// Language: "language" in config.json ("auto" | "en" | "es"); "popup.style": "mono" turns the panel grayscale
+// (the Colors switch on the options page writes that key, and only that key).
 //
 // The session files are owned by the hooks; this app never writes them. It also watches each session's transcript,
 // in memory only, so a state does not stay stale when no hook fires (permission approved, request interrupted, you
@@ -52,6 +53,8 @@
 //   CCNOTIFY_TEST_ORDER=1           prints the session ids in list order and quits.
 //   CCNOTIFY_TEST_EMOJI=1           prints "<id>\t<family>/<name>.png|-\tmanual|auto" per session (in id order) and quits.
 //   CCNOTIFY_TEST_OPTIONS=<json>    saves those keys the way the options page does, prints options.json and quits.
+//   CCNOTIFY_TEST_COLORS=on|off     writes popup.style (color | mono) into config.json the way the Colors switch does, prints
+//                                   config.json and quits (exit 2 if it could not be written).
 //   CCNOTIFY_TEST_CHOOSE=<id>=<family>/<name>.png   saves that session's emoji by hand (empty after "=": removes it) and quits.
 //   CCNOTIFY_TEST_NAV=<id>          opens the panel and does what the clicks do (options page, switches, icon, emoji picker of that
 //                                   row), noting each step in stderr, and quits.
@@ -126,6 +129,29 @@ func configStyle() -> String {
     return "color"
 }
 
+/// True when popups and panel are in color: popup.style is anything but "mono" ("color" and "neutral" count as on).
+func colorsEnabled() -> Bool { configStyle() != "mono" }
+
+/// Writes only popup.style ("color" or "mono") into config.json and keeps every other key (pretty printed, indent 2,
+/// private atomic write). A missing file is created with just {"popup": {"style": ...}}; a file that exists but is not
+/// a JSON object is left alone (returns false), so a hand-edited config is never overwritten by a guess.
+@discardableResult
+func setConfigStyle(_ style: String, path: String = ccHome + "/config.json") -> Bool {
+    guard style == "color" || style == "mono" else { return false }
+    var cfg: [String: Any] = [:]
+    if let data = FileManager.default.contents(atPath: path) {
+        guard let o = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return false }
+        cfg = o
+    }
+    var popup = cfg["popup"] as? [String: Any] ?? [:]
+    popup["style"] = style
+    cfg["popup"] = popup
+    guard let out = try? JSONSerialization.data(withJSONObject: cfg, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
+    else { return false }
+    ensureDir((path as NSString).deletingLastPathComponent)
+    return writePrivate(out + Data("\n".utf8), to: path)
+}
+
 /// popup.private: the hooks keep message text out of the state files, and so does this app.
 func configPrivate() -> Bool {
     ((configObject()["popup"] as? [String: Any])?["private"] as? Bool) ?? false
@@ -195,6 +221,9 @@ struct Strings {
     // Options page
     var back: String { es ? "‹ Volver" : "‹ Back" }
     var sectionMenuBar: String { es ? "Barra de menú" : "Menu bar" }
+    var sectionColors: String { es ? "Colores" : "Colors" }
+    var optColors: String { es ? "Avisos y panel en color" : "Colored popups and panel" }
+    var colorsNote: String { es ? "Apagado: las ventanitas y el panel en grises." : "Off: popups and panel in grays." }
     var sectionEmoji: String { "Emoji" }
     var sectionPanel: String { "Panel" }
     var emojiForEach: String { es ? "Emoji en cada sesión" : "Emoji for each session" }
@@ -676,7 +705,7 @@ func isSymbolName(_ s: String) -> Bool {
 }
 
 /// What the panel shows and the status item looks like. Lives in <CCNOTIFY_HOME>/state/menubar/options.json, which only
-/// this app writes (never config.json). Missing or unreadable file: everything at its default.
+/// this app writes (the only key it writes in config.json is popup.style, from the Colors switch). Missing or unreadable file: everything at its default.
 ///   {"icon": "<SF Symbol>", "emoji_theme": "<family>" | "none", "bubble": true, "usage": true, "context": true}
 struct PanelOptions {
     var icon = defaultBarIcon
@@ -2033,6 +2062,13 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             fflush(stdout)
             exit(ok ? 0 : 2)
         }
+        if let v = env["CCNOTIFY_TEST_COLORS"], !v.isEmpty {
+            // "on" / "off" writes popup.style the way the options switch does, prints config.json and quits
+            let ok = v == "on" || v == "off" ? setConfigStyle(v == "on" ? "color" : "mono") : false
+            if let data = FileManager.default.contents(atPath: ccHome + "/config.json") { print(String(decoding: data, as: UTF8.self), terminator: "") }
+            fflush(stdout)
+            exit(ok ? 0 : 2)
+        }
         if let spec = env["CCNOTIFY_TEST_CHOOSE"], let eq = spec.firstIndex(of: "=") {
             // "<session>=<family>/<name>.png" saves the emoji you chose by hand for that session; with the right side empty, removes it
             opts = PanelOptions.load()
@@ -2869,8 +2905,16 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         rebuildPanel(force: true)
     }
 
-    /// The options page, in three grouped boxes: "Menu bar" (the icon, one line), "Emoji" (a switch and a row per family
-    /// with its pictures) and "Panel" (three checkboxes).
+    /// Colored or grayscale: writes popup.style to config.json (the popups read it on their next notification, the
+    /// panel at once) and refreshes the panel.
+    func applyColors(_ on: Bool) {
+        setConfigStyle(on ? "color" : "mono")
+        refresh()
+        rebuildPanel(force: true)
+    }
+
+    /// The options page, in four grouped boxes: "Colors" (one switch), "Menu bar" (the icon, one line), "Emoji" (a switch
+    /// and a row per family with its pictures) and "Panel" (three checkboxes).
     func buildOptions(opaque: Bool) -> (NSView, String) {
         let WIDTH: CGFloat = 380, PAD: CGFloat = 14
         let inner = WIDTH - 2 * PAD
@@ -2907,6 +2951,24 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             panel.addSubview(b)
             return b
         }
+
+        // 0. Colors: one switch for popup.style (color or mono); the note says what off means
+        label(L.sectionColors)
+        let boxColors = newBox()
+        let colorsOn = colorsEnabled()
+        signatureInProgress += "<colors:\(colorsOn)>"
+        let colorsRow = OptionRow(L.optColors, on: colorsOn, width: boxWidth, height: 40, inset: 12, asSwitch: true) { [unowned self] in
+            self.applyColors(!colorsOn)
+        }
+        colorsRow.frame.origin = NSPoint(x: PAD, y: y)
+        panel.addSubview(colorsRow)
+        y += 40
+        boxColors.frame.size.height = 40
+        y += 8
+        let colorsNote = text(L.colorsNote, 11.5, .regular, .secondaryLabelColor, width: inner - 8, lines: 0)
+        colorsNote.frame.origin = NSPoint(x: PAD + 4, y: y)
+        panel.addSubview(colorsNote)
+        y += colorsNote.textSize.height + BETWEEN
 
         // 1. Menu bar: the icons in one line of 28 pt buttons
         label(L.sectionMenuBar)

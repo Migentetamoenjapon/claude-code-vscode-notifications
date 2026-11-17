@@ -89,7 +89,7 @@ Images here follow your GitHub light/dark theme; the popup follows macOS.
 
 ## 2. Styles
 
-Choose with `"popup": { "style": "color" }` in the [config](#configure).
+Choose with `"popup": { "style": "color" }` in the [config](#configure), or flip color / mono with the Colors switch on the menu bar's options page.
 
 | `color` (default) | `neutral` | `mono` |
 |---|---|---|
@@ -144,16 +144,16 @@ ones you haven't looked at. No number means nothing is pending. Click it for one
 
 **Options.** The gear next to Quit opens a page for what the panel shows and how it looks: the **icon** of the menu bar
 item, **emoji** for each session, and whether to show the message bubble, the usage limits and the context of each
-session. Your choices are saved in `state/menubar/options.json` (the app's own file; `config.json` is never touched).
+session. Your choices are saved in `state/menubar/options.json` (the app's own file; the only thing it writes in `config.json` is `popup.style`, from the Colors switch).
 
 **An emoji for each session.** Every open session gets its own small picture (on by default; the switch is on the options page), from a family you
 choose (nature, bugs, music, cozy, adventure, animals, fruits, gems & objects, colors) and different from the other open ones,
 so you tell your sessions apart at a glance. Click the emoji in a row to pick another one yourself, or go back to
 *Automatic*. The pictures are [Fluent Emoji](https://github.com/microsoft/fluentui-emoji) by Microsoft (MIT).
 
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/menubar-options-dark.png"><img src="docs/img/menubar-options-light.png" width="300" alt="The options page: icon of the menu bar, emoji families and the panel checkboxes"></picture> <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/menubar-picker-dark.png"><img src="docs/img/menubar-picker-light.png" width="300" alt="The emoji picker of a row, with every family"></picture></p>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/menubar-options-dark.png"><img src="docs/img/menubar-options-light.png" width="300" alt="The options page: colors switch, icon of the menu bar, emoji families and the panel checkboxes"></picture> <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/menubar-picker-dark.png"><img src="docs/img/menubar-picker-light.png" width="300" alt="The emoji picker of a row, with every family"></picture></p>
 
-In `mono` style nothing is colored (the emoji turn gray too).
+In `mono` style nothing is colored (the emoji turn gray too). You can switch between color and mono without editing the config: the **Colors** switch at the top of the options page writes `popup.style` (`color` when on, `mono` when off; `neutral` counts as on) and nothing else in `config.json`.
 
 <p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/menubar-mono-dark.png"><img src="docs/img/menubar-mono-light.png" width="434" alt="The same panel in mono style: grayscale, with the emoji in gray"></picture></p>
 

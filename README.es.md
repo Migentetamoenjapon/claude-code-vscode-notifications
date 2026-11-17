@@ -89,7 +89,7 @@ alineadas. Las imágenes siguen el tema claro u oscuro de tu GitHub; el aviso si
 
 ## 2. Estilos
 
-Se elige con `"popup": { "style": "color" }` en la [configuración](#configurar).
+Se elige con `"popup": { "style": "color" }` en la [configuración](#configurar), o con el interruptor Colores de la página de opciones de la barra de menú.
 
 | `color` (por defecto) | `neutral` | `mono` |
 |---|---|---|
@@ -145,17 +145,17 @@ recordatorio · trabajando · leídas.
 
 **Opciones.** El engranaje junto a Salir abre una página con lo que muestra el panel y cómo se ve: el **ícono** de la
 barra de menú, el **emoji** de cada sesión y si quieres el globo con el mensaje, los límites de uso y el contexto de
-cada sesión. Tus cambios se guardan en `state/menubar/options.json` (un archivo propio de la app; `config.json` no se
-toca).
+cada sesión. Tus cambios se guardan en `state/menubar/options.json` (un archivo propio de la app; lo único que escribe en `config.json` es
+`popup.style`, desde el interruptor Colores).
 
 **Un emoji para cada sesión.** Cada sesión abierta recibe su propia imagen pequeña (viene activado; el interruptor está en la página de opciones), de
 una familia que tú eliges (naturaleza, bichos, música, acogedor, aventura, animales, frutas, gemas y objetos, colores) y distinta de las
 otras abiertas, para reconocer tus sesiones de un vistazo. Toca el emoji de una fila para elegir otro tú mismo, o vuelve
 a *Automático*. Las imágenes son [Fluent Emoji](https://github.com/microsoft/fluentui-emoji) de Microsoft (MIT).
 
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/menubar-options-dark.png"><img src="docs/img/menubar-options-light.png" width="300" alt="La página de opciones: ícono de la barra de menú, familias de emoji y casillas del panel"></picture> <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/menubar-picker-dark.png"><img src="docs/img/menubar-picker-light.png" width="300" alt="El selector de emoji de una fila, con todas las familias"></picture></p>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/menubar-options-dark.png"><img src="docs/img/menubar-options-light.png" width="300" alt="La página de opciones: interruptor de colores, ícono de la barra de menú, familias de emoji y casillas del panel"></picture> <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/menubar-picker-dark.png"><img src="docs/img/menubar-picker-light.png" width="300" alt="El selector de emoji de una fila, con todas las familias"></picture></p>
 
-En el estilo `mono` nada lleva color (los emoji también se ven en gris).
+En el estilo `mono` nada lleva color (los emoji también se ven en gris). Puedes pasar de color a mono sin editar la configuración: el interruptor **Colores** al inicio de la página de opciones escribe `popup.style` (`color` encendido, `mono` apagado; `neutral` cuenta como encendido) y nada más en `config.json`.
 
 <p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/menubar-mono-dark.png"><img src="docs/img/menubar-mono-light.png" width="434" alt="El mismo panel en estilo mono: en grises, con los emoji en gris"></picture></p>
 

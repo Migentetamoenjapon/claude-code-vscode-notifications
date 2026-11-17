@@ -153,8 +153,9 @@ dynamic colors resolve on every redraw, so light and dark follow the system.
   (a JSON in `state/queue/` and `open -n -g CCNotify.app`); it is dropped when the session changes state or ends.
 - **Limits:** the "Limits" block comes from `state/usage.json`; the "ctx NN %" of a row from `state/context/<id>.json`.
   Both are written by the status line, so without it there is neither.
-- **Options page** (the gear in the footer): the icon of the status item (a line of SF Symbols), emoji on/off and
-  the family, and three checkboxes (bubble, usage, context). Saved to `state/menubar/options.json`, never to
+- **Options page** (the gear in the footer): a **Colors** switch (color ⇄ mono, see [Styles](#styles-added-after-visual-review)),
+  the icon of the status item (a line of SF Symbols), emoji on/off and the family, and three checkboxes (bubble, usage,
+  context). The checkboxes, icon and emoji are saved to `state/menubar/options.json`, not to
   `config.json`: `{"icon", "emoji_theme": "<family>" | "none", "bubble", "usage", "context"}`. Unknown keys are kept; a
   missing or unreadable file means the defaults (`bubble.left.and.bubble.right`, `nature`, everything on).
 - **Emoji:** families are the folders of `Contents/Resources/emoji/` (`nature`, `bugs`, `music`, `cozy`, `adventure`,
@@ -262,6 +263,11 @@ These refine everything above. When in doubt, this section wins.
   attention tint),
   `"mono"` (grayscale only; needs-you kinds use a filled symbol, semibold label and a stronger full border).
   Any other value, or a missing key, means `"color"` (validated in `hooks/notify.py`, and again in the popup app).
+- The **Colors** switch (first group of the menu bar's Options page) flips `popup.style` between `"color"` (on) and
+  `"mono"` (off); `"neutral"` counts as on. It is the one thing the menu bar app writes in `config.json`: it reads the
+  JSON, changes only `popup.style` (other keys kept, indent 2, atomic private write; a missing file is created with just
+  that key; a file that is not valid JSON is left untouched) and refreshes the panel. The popups pick it up on the next
+  notification, because `notify.py` and the menu bar send `style` in each popup JSON.
 - `popup.compact_lines` (default 2): lines shown by older popups in the stack.
 - Layout: header row (small icon · project · kind) separated from the body by a hairline rule; the body uses the
   full card width.
