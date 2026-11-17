@@ -103,8 +103,9 @@ Choose with `"popup": { "style": "color" }` in the [config](#configure).
 |---|---|
 | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-long-dark.png"><img src="docs/img/popup-long-light.png" width="400" alt="Long popup with headings and lists and a scroll bar"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-compact-dark.png"><img src="docs/img/popup-compact-light.png" width="400" alt="Compact popup showing only two lines of the message"></picture> |
 
-- Beyond 60 % of the screen height the text scrolls (`max_height_ratio`).
+- Beyond 60 % of the screen height the text scrolls (`max_height_ratio`), and the open popup always leaves room for three compact ones below it.
 - The newest popup sits on top, open. Older ones shrink to `compact_lines` (2) and expand when you hover.
+- Hovering any popup pauses the countdown of the whole stack; when you move away, each one keeps at least 4 s. A popup that becomes the top one keeps at least 8 s.
 - A newer popup from the same session replaces the previous one.
 
 ## 4. Jump to the exact terminal

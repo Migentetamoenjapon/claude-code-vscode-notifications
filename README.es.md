@@ -103,8 +103,9 @@ Se elige con `"popup": { "style": "color" }` en la [configuración](#configurar)
 |---|---|
 | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-long-dark.png"><img src="docs/img/popup-long-light.png" width="400" alt="Aviso largo con títulos, listas y barra de scroll"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/popup-compact-dark.png"><img src="docs/img/popup-compact-light.png" width="400" alt="Aviso compacto que muestra solo dos líneas del mensaje"></picture> |
 
-- Si pasa del 60 % del alto de la pantalla, el texto tiene scroll (`max_height_ratio`).
+- Si pasa del 60 % del alto de la pantalla, el texto tiene scroll (`max_height_ratio`), y el aviso abierto siempre deja sitio para tres compactos debajo.
 - El aviso más nuevo va arriba y abierto. Los anteriores se achican a `compact_lines` (2) y se abren al pasar el mouse.
+- Pasar el mouse sobre cualquier aviso pausa la cuenta de toda la pila; al sacarlo, cada uno conserva al menos 4 s. El que pasa a ser el de arriba conserva al menos 8 s.
 - Un aviso nuevo de la misma sesión reemplaza al anterior.
 
 ## 4. Ir a la terminal exacta
