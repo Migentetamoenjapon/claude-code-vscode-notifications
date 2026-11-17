@@ -207,6 +207,7 @@ brought to the front.
 - `CCNOTIFY_CAPTURE=<file.png>`: popup renders, saves a PNG of itself (`cacheDisplay`, without blur) and quits.
 - `CCNOTIFY_THEME=light|dark`: force appearance.
 - `CCNOTIFY_COMPACT=1`: render the compact version (`compact_lines`) and don't re-stack.
+- `CCNOTIFY_PRESENT=1`: the "user is away > 90 s" check always says present (timing tests only).
 
 ## Requirements
 
@@ -230,6 +231,11 @@ These refine everything above. When in doubt, this section wins.
   (transcript grows with a new assistant/user message), on click, or ✕. Timer applies to `done` only.
   Config `popup.sticky_needs_you` (default true).
 - **Height:** default `max_height_ratio` 0.6; beyond it the body scrolls (wheel/trackpad; overlay scroller flashes on open).
+  The open popup is also capped at visible height − 2·margin − 3·(compact height + gap), so three compact popups
+  always fit below it.
+- **Stack timing:** every popup repositions itself every tick (0.1 s). The popup under the mouse touches
+  `state/active/.hover` each tick (no `__` in the name, so stack scans skip it); while that mark is < 0.4 s old nobody
+  counts down, and when it goes stale each popup keeps at least 4 s. A popup that becomes the top one keeps at least 8 s.
 - **Screen:** chosen once at creation = the screen containing the mouse pointer; stacking computed per that screen.
 - **Live appearance:** colors are dynamic (`NSColor(name:dynamicProvider:)`) so light/dark switches live.
 - **Accessibility:** if `NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency` → opaque background; if

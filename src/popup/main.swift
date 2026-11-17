@@ -7,13 +7,24 @@
 //
 // Behaviour in short
 //   * Click anywhere -> jump to the conversation (focus_session.py, run with argv, never a shell).
-//     The X appears on hover. Hovering pauses the auto-dismiss timer.
+//     The X appears on hover.
 //   * "done" popups close by themselves after `seconds` (the timer also pauses while you are idle).
 //     "Needs you" kinds (permission, question, agent) are sticky: they close when the conversation
 //     moves on, on click, or on X.
+//   * Shared hover pause: while the mouse is over ANY popup of the stack, every popup pauses its
+//     countdown (the hovered one touches state/active/.hover every tick; the others read it). When the
+//     mouse leaves the stack, each popup keeps at least 4 s.
+//   * Promotion: a popup that becomes the top one (the one above it left) keeps at least 8 s, so it
+//     does not open and vanish at once.
 //   * Stacking: newest on top and fully open; older ones collapse to `compact_lines` (expand on hover).
-//     Each popup registers itself in state/active/<id>__<pid>.
-//   * Test hooks: CCNOTIFY_CAPTURE=<file.png>, CCNOTIFY_THEME=light|dark, CCNOTIFY_COMPACT=1.
+//     Each popup registers itself in state/active/<id>__<pid>. Every popup recomputes its position
+//     on every tick (0.1 s), so several popups arriving together do not overlap.
+//   * The open popup is never taller than `max_height_ratio` of the visible height nor than what
+//     leaves room for 3 compact popups below it (visible height - 2 margins - 3 x (compact + gap));
+//     the rest scrolls. A popup closes when `max_stacked` newer ones exist (not "needs you" ones) or
+//     when even its compact form no longer fits on the screen.
+//   * Test hooks: CCNOTIFY_CAPTURE=<file.png>, CCNOTIFY_THEME=light|dark, CCNOTIFY_COMPACT=1,
+//     CCNOTIFY_PRESENT=1 (turns off the "user is away > 90 s" check; for timing tests only).
 import Cocoa
 import Darwin
 
@@ -33,6 +44,7 @@ let lastSoundFile = stateDir + "/last-sound"
 let focusScript = ccHome + "/bin/focus_session.py"
 let captureTarget: String? = env["CCNOTIFY_CAPTURE"]
 let compactTest = env["CCNOTIFY_COMPACT"] == "1"
+let presentTest = env["CCNOTIFY_PRESENT"] == "1"   // timing tests only: the user is never "away"
 
 func ensureDir(_ path: String) {
     try? FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true,
@@ -807,6 +819,7 @@ final class Popup: NSObject, NSApplicationDelegate {
     // Countdown
     var remaining = 60.0
     var hovered = false
+    var stackWasHovered = false   // the stack had the mouse over it (shared pause)
     var ticks = 0
     var timer: Timer?
     var expandWork: DispatchWorkItem?
@@ -1004,7 +1017,14 @@ final class Popup: NSObject, NSApplicationDelegate {
 
         // Open: the whole text. Past max_height_ratio of the screen height it goes in a scroll view.
         let vf = screen.visibleFrame
-        let maxH = max(floor((vf.height - 2 * margin) * CGFloat(d.maxHeightRatio)) - yText - pad, 80)
+        // Cap on the open card: max_height_ratio of the visible height, but always leaving room for 3
+        // compact popups below it. Worst compact = the tallest one possible (3 lines) or this one's own.
+        let ownCompactH = max(yText + summaryH + pad, minHeight)
+        let threeLinesH = yText + ceil(NSLayoutManager().defaultLineHeight(for: fmt.body)) * 3 + 2 * 2 + pad  // 2 pt line spacing between lines
+        let worstCompactH = max(ownCompactH, threeLinesH)
+        let maxOpenH = min(floor((vf.height - 2 * margin) * CGFloat(d.maxHeightRatio)),
+                           vf.height - 2 * margin - 3 * (worstCompactH + gap))
+        let maxH = max(maxOpenH - yText - pad, 80)
         fullText = NSTextView(frame: NSRect(x: 0, y: 0, width: bodyWidth, height: 10))
         fullText.isEditable = false
         fullText.isSelectable = false
@@ -1170,9 +1190,21 @@ final class Popup: NSObject, NSApplicationDelegate {
     func tick() {
         guard !closing else { return }
         ticks += 1
-        if ticks % 3 == 0 && !compactTest { relayout() }
+        if !compactTest { relayout() }
+        if closing { return }   // relayout() may have closed this popup
         if ticks % 10 == 0, conversationMoved() { closePopup(); return }
-        guard timed, !hovered else { return }
+        // Shared hover pause: the popup under the mouse marks the stack as hovered, even if it is a
+        // sticky one that does not count down itself; nobody counts down while the stack is hovered.
+        if hovered { touchHoverMark() }
+        if hovered || stackHovered() {
+            stackWasHovered = true
+            return
+        }
+        if stackWasHovered {
+            stackWasHovered = false
+            remaining = max(remaining, 4)   // do not vanish the moment the mouse leaves the stack
+        }
+        guard timed else { return }
         if userAway() {
             remaining = max(remaining, 15)   // you are not here: stay; keep going where it was when you return
             return
@@ -1183,6 +1215,7 @@ final class Popup: NSObject, NSApplicationDelegate {
 
     /// More than 90 s without keyboard, mouse or trackpad (reading a popup does not count as away).
     func userAway() -> Bool {
+        if presentTest { return false }   // test hook only
         guard let any = CGEventType(rawValue: ~0) else { return false }
         return CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: any) > 90
     }
@@ -1276,6 +1309,26 @@ final class Popup: NSObject, NSApplicationDelegate {
         writePrivate("\(created) \(Double(h)) \(screenID)", to: activeFile)
     }
 
+    /// Shared "the mouse is over the stack" mark: state/active/.hover. The popup under the mouse touches
+    /// it every tick; the others read it. Its name has no "__" (and safeName() never yields a leading
+    /// dot), so registerSelf() and newerHeights() skip it.
+    var hoverMarkPath: String { activeDir + "/.hover" }
+
+    func touchHoverMark() {
+        let fm = FileManager.default
+        if (try? fm.setAttributes([.modificationDate: Date()], ofItemAtPath: hoverMarkPath)) == nil {
+            ensureDir(activeDir)
+            fm.createFile(atPath: hoverMarkPath, contents: Data(), attributes: [.posixPermissions: 0o600])
+        }
+    }
+
+    /// Does any popup of the stack have the mouse over it? (the mark was touched less than 0.4 s ago)
+    func stackHovered() -> Bool {
+        guard let modified = (try? FileManager.default.attributesOfItem(atPath: hoverMarkPath))?[.modificationDate] as? Date
+        else { return false }
+        return Date().timeIntervalSince(modified) < 0.4
+    }
+
     /// Heights of the popups newer than this one on the same screen (the ones above it).
     func newerHeights() -> [Double] {
         let fm = FileManager.default
@@ -1309,14 +1362,18 @@ final class Popup: NSObject, NSApplicationDelegate {
         let vf = screen.visibleFrame
         guard let newTop = computeTop(vf) else { closePopup(); return }
         // The top one is open; the rest are compact (unless the mouse is over them)
+        let wasTop = isTop
         isTop = abs(newTop - (vf.maxY - margin)) < 0.5
+        if isTop && !wasTop { remaining = max(remaining, 8) }   // promotion: do not open and vanish at once
         noteHeight(isTop ? openHeight : compactHeight)
         let wantsOpen = isTop || hovered
         let moved = abs(newTop - topEdge) > 0.5
         topEdge = newTop
         if wantsOpen != isOpen { expand(wantsOpen); return }   // already uses the new top
         guard moved else { return }
-        let h = panel.frame.height
+        // Target height, not the current one: mid-expand/collapse the frame height is an intermediate value
+        // and, now that relayout() runs every tick, it would leave the window halfway and overlap the one below.
+        let h = isOpen ? openHeight : compactHeight
         let target = NSRect(x: vf.maxX - W - margin, y: newTop - h, width: W, height: h)
         if reduceMotion { panel.setFrame(target, display: true); return }
         NSAnimationContext.runAnimationGroup { ctx in
