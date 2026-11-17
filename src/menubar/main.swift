@@ -19,7 +19,7 @@
 // A session counts as seen when seen >= since (a json "seen": true is also honored). Sessions with a newer-or-equal
 // tombstone in state/ended/ are hidden. CCNOTIFY_HOME defaults to $CLAUDE_CONFIG_DIR/ccnotify (~/.claude/ccnotify).
 // Language: "language" in config.json ("auto" | "en" | "es"); "popup.style": "mono" turns the panel grayscale
-// (the Colors switch on the options page writes that key, and only that key).
+// (the Style selector on the options page writes that key, and only that key).
 //
 // The session files are owned by the hooks; this app never writes them. It also watches each session's transcript,
 // in memory only, so a state does not stay stale when no hook fires (permission approved, request interrupted, you
@@ -53,7 +53,7 @@
 //   CCNOTIFY_TEST_ORDER=1           prints the session ids in list order and quits.
 //   CCNOTIFY_TEST_EMOJI=1           prints "<id>\t<family>/<name>.png|-\tmanual|auto" per session (in id order) and quits.
 //   CCNOTIFY_TEST_OPTIONS=<json>    saves those keys the way the options page does, prints options.json and quits.
-//   CCNOTIFY_TEST_COLORS=on|off     writes popup.style (color | mono) into config.json the way the Colors switch does, prints
+//   CCNOTIFY_TEST_COLORS=color|neutral|mono   writes popup.style into config.json the way the Style selector does, prints
 //                                   config.json and quits (exit 2 if it could not be written).
 //   CCNOTIFY_TEST_CHOOSE=<id>=<family>/<name>.png   saves that session's emoji by hand (empty after "=": removes it) and quits.
 //   CCNOTIFY_TEST_NAV=<id>          opens the panel and does what the clicks do (options page, switches, icon, emoji picker of that
@@ -129,15 +129,21 @@ func configStyle() -> String {
     return "color"
 }
 
-/// True when popups and panel are in color: popup.style is anything but "mono" ("color" and "neutral" count as on).
-func colorsEnabled() -> Bool { configStyle() != "mono" }
+/// The three values of popup.style.
+let configStyles = ["color", "neutral", "mono"]
 
-/// Writes only popup.style ("color" or "mono") into config.json and keeps every other key (pretty printed, indent 2,
+/// The style the Style selector shows as chosen: popup.style when it is one of the three known values, else "color".
+func selectedStyle() -> String {
+    let s = configStyle()
+    return configStyles.contains(s) ? s : "color"
+}
+
+/// Writes only popup.style ("color", "neutral" or "mono") into config.json and keeps every other key (pretty printed, indent 2,
 /// private atomic write). A missing file is created with just {"popup": {"style": ...}}; a file that exists but is not
 /// a JSON object is left alone (returns false), so a hand-edited config is never overwritten by a guess.
 @discardableResult
 func setConfigStyle(_ style: String, path: String = ccHome + "/config.json") -> Bool {
-    guard style == "color" || style == "mono" else { return false }
+    guard configStyles.contains(style) else { return false }
     var cfg: [String: Any] = [:]
     if let data = FileManager.default.contents(atPath: path) {
         guard let o = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return false }
@@ -221,11 +227,22 @@ struct Strings {
     // Options page
     var back: String { es ? "‹ Volver" : "‹ Back" }
     var sectionMenuBar: String { es ? "Barra de menú" : "Menu bar" }
-    var sectionColors: String { es ? "Colores" : "Colors" }
-    var optColors: String { es ? "Avisos y panel en color" : "Colored popups and panel" }
-    var colorsNote: String { es ? "Apagado: las ventanitas y el panel en grises." : "Off: popups and panel in grays." }
+    var sectionStyle: String { es ? "Estilo" : "Style" }
+    func styleName(_ style: String) -> String {
+        switch style {
+        case "neutral": return es ? "Neutro" : "Neutral"
+        case "mono": return "Mono"
+        default: return "Color"
+        }
+    }
+    func styleNote(_ style: String) -> String {
+        switch style {
+        case "neutral": return es ? "Avisos neutros; solo lo que te necesita lleva color." : "Neutral popups; only what needs you gets color."
+        case "mono": return es ? "Todo en grises." : "Everything in grays."
+        default: return es ? "Un color por tipo de aviso." : "One color per kind of notification."
+        }
+    }
     var sectionEmoji: String { "Emoji" }
-    var sectionPanel: String { "Panel" }
     var emojiForEach: String { es ? "Emoji en cada sesión" : "Emoji for each session" }
     var emojiNote: String {
         es ? "Para cambiar el de una sola sesión, haz clic en su emoji."
@@ -233,9 +250,6 @@ struct Strings {
     }
     func showMore(_ n: Int) -> String { es ? "Mostrar \(n) más" : "Show \(n) more" }
     var showLess: String { es ? "Mostrar menos" : "Show less" }
-    var optBubble: String { es ? "Globo con el mensaje completo" : "Bubble with the whole message" }
-    var optUsage: String { es ? "Uso de 5 horas y de la semana" : "5-hour and weekly usage" }
-    var optContext: String { es ? "Contexto de cada sesión" : "Context of each session" }
     var pickEmoji: String { es ? "Elige un emoji" : "Pick an emoji" }
     var automatic: String { es ? "Automático" : "Automatic" }
     var changeEmoji: String { es ? "Cambiar emoji" : "Change emoji" }
@@ -705,7 +719,7 @@ func isSymbolName(_ s: String) -> Bool {
 }
 
 /// What the panel shows and the status item looks like. Lives in <CCNOTIFY_HOME>/state/menubar/options.json, which only
-/// this app writes (the only key it writes in config.json is popup.style, from the Colors switch). Missing or unreadable file: everything at its default.
+/// this app writes (the only key it writes in config.json is popup.style, from the Style selector). Missing or unreadable file: everything at its default.
 ///   {"icon": "<SF Symbol>", "emoji_theme": "<family>" | "none", "bubble": true, "usage": true, "context": true}
 struct PanelOptions {
     var icon = defaultBarIcon
@@ -1405,22 +1419,18 @@ final class BarIconButton: NSView {
     }
 }
 
-/// A row of the options page with a checkbox (or a switch on the right): pressing anywhere on the row toggles it. The
-/// checkbox is drawn by hand (a 14 pt rounded square; on, filled with the label color and a tick).
+/// A row of the options page with a switch on the right: pressing anywhere on the row toggles it.
 final class OptionRow: NSView {
     let text: String
     let on: Bool
     let inset: CGFloat           // margin left and right (inside a grouped box)
-    let asSwitch: Bool
     let onClick: () -> Void
     var pressed = false { didSet { needsDisplay = true } }
 
-    init(_ text: String, on: Bool, width: CGFloat, height: CGFloat = 30, inset: CGFloat = 0, asSwitch: Bool = false,
-         action: @escaping () -> Void) {
+    init(_ text: String, on: Bool, width: CGFloat, height: CGFloat = 30, inset: CGFloat = 0, action: @escaping () -> Void) {
         self.text = text
         self.on = on
         self.inset = inset
-        self.asSwitch = asSwitch
         onClick = action
         super.init(frame: NSRect(x: 0, y: 0, width: width, height: height))
     }
@@ -1446,41 +1456,64 @@ final class OptionRow: NSView {
             NSBezierPath(roundedRect: bounds, xRadius: inset > 0 ? 0 : 6, yRadius: inset > 0 ? 0 : 6).fill()
         }
         let tick = NSColor.dynamic(light: .white, dark: NSColor(hex: 0x1E1E1E))
-        if asSwitch {
-            let t = attr(text, 13, .regular, .labelColor)
-            t.draw(at: NSPoint(x: inset, y: ((bounds.height - t.size().height) / 2).rounded()))
-            let track = NSRect(x: bounds.width - inset - 30, y: ((bounds.height - 18) / 2).rounded(), width: 30, height: 18)
-            (on ? labelAlpha(0.85) : labelAlpha(0.18)).setFill()
-            NSBezierPath(roundedRect: track, xRadius: 9, yRadius: 9).fill()
-            let d: CGFloat = 14
-            let knob = NSRect(x: on ? track.maxX - 2 - d : track.minX + 2, y: track.minY + 2, width: d, height: d)
-            (on ? tick : NSColor.dynamic(light: .white, dark: NSColor(hex: 0xE6E6E6))).setFill()
-            NSBezierPath(ovalIn: knob).fill()
-            return
-        }
-        let box = NSRect(x: inset, y: ((bounds.height - 14) / 2).rounded(), width: 14, height: 14)
-        let shape = NSBezierPath(roundedRect: box.insetBy(dx: 0.5, dy: 0.5), xRadius: 3.5, yRadius: 3.5)
-        if on {
-            labelAlpha(0.85).setFill()
-            shape.fill()
-            // The tick: white in light; in dark, the background color (white on white would not be seen)
-            tick.setStroke()
-            let v = NSBezierPath()
-            v.move(to: NSPoint(x: box.minX + 3.5, y: box.minY + 7.3))
-            v.line(to: NSPoint(x: box.minX + 6, y: box.minY + 9.8))
-            v.line(to: NSPoint(x: box.minX + 10.6, y: box.minY + 4.4))
-            v.lineWidth = 1.7
-            v.lineCapStyle = .round
-            v.lineJoinStyle = .round
-            v.stroke()
-        } else {
-            shape.lineWidth = 1
-            labelAlpha(0.4).setStroke()
-            shape.stroke()
-        }
         let t = attr(text, 13, .regular, .labelColor)
+        t.draw(at: NSPoint(x: inset, y: ((bounds.height - t.size().height) / 2).rounded()))
+        let track = NSRect(x: bounds.width - inset - 30, y: ((bounds.height - 18) / 2).rounded(), width: 30, height: 18)
+        (on ? labelAlpha(0.85) : labelAlpha(0.18)).setFill()
+        NSBezierPath(roundedRect: track, xRadius: 9, yRadius: 9).fill()
+        let d: CGFloat = 14
+        let knob = NSRect(x: on ? track.maxX - 2 - d : track.minX + 2, y: track.minY + 2, width: d, height: d)
+        (on ? tick : NSColor.dynamic(light: .white, dark: NSColor(hex: 0xE6E6E6))).setFill()
+        NSBezierPath(ovalIn: knob).fill()
+    }
+}
+
+/// One of the buttons of the Style selector: a word in a rounded rectangle, like the menu bar icons. Chosen: tinted fill
+/// and a thin full border in a stronger tone; the others, just the faint border.
+final class StyleButton: NSView {
+    let name: String
+    let chosen: Bool
+    let onClick: () -> Void
+    var pressed = false { didSet { needsDisplay = true } }
+
+    init(name: String, chosen: Bool, width: CGFloat, height: CGFloat, action: @escaping () -> Void) {
+        self.name = name
+        self.chosen = chosen
+        onClick = action
+        super.init(frame: NSRect(x: 0, y: 0, width: width, height: height))
+        toolTip = name
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override var isFlipped: Bool { true }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override func mouseDown(with event: NSEvent) { pressed = true }
+    override func mouseUp(with event: NSEvent) {
+        let inside = bounds.contains(convert(event.locationInWindow, from: nil))
+        pressed = false
+        if inside { DispatchQueue.main.async { self.onClick() } }
+    }
+    override func isAccessibilityElement() -> Bool { true }
+    override func accessibilityRole() -> NSAccessibility.Role? { .radioButton }
+    override func accessibilityLabel() -> String? { name }
+    override func accessibilityValue() -> Any? { chosen ? 1 : 0 }
+    override func accessibilityPerformPress() -> Bool { onClick(); return true }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let shape = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 8.5, yRadius: 8.5)
+        if chosen {
+            labelAlpha(0.06).setFill()
+            shape.fill()
+        } else if pressed {
+            labelAlpha(0.05).setFill()
+            shape.fill()
+        }
+        shape.lineWidth = 1
+        (chosen ? labelAlpha(0.55) : NSColor.separatorColor).setStroke()
+        shape.stroke()
+        let t = attr(name, 13, chosen ? .semibold : .regular, .labelColor)
         let m = t.size()
-        t.draw(at: NSPoint(x: inset + 14 + 10, y: ((bounds.height - m.height) / 2).rounded()))
+        t.draw(at: NSPoint(x: ((bounds.width - m.width) / 2).rounded(), y: ((bounds.height - m.height) / 2).rounded()))
     }
 }
 
@@ -2063,8 +2096,8 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             exit(ok ? 0 : 2)
         }
         if let v = env["CCNOTIFY_TEST_COLORS"], !v.isEmpty {
-            // "on" / "off" writes popup.style the way the options switch does, prints config.json and quits
-            let ok = v == "on" || v == "off" ? setConfigStyle(v == "on" ? "color" : "mono") : false
+            // "color" | "neutral" | "mono" writes popup.style the way the Style selector does, prints config.json and quits
+            let ok = setConfigStyle(v)
             if let data = FileManager.default.contents(atPath: ccHome + "/config.json") { print(String(decoding: data, as: UTF8.self), terminator: "") }
             fflush(stdout)
             exit(ok ? 0 : 2)
@@ -2905,21 +2938,21 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         rebuildPanel(force: true)
     }
 
-    /// Colored or grayscale: writes popup.style to config.json (the popups read it on their next notification, the
+    /// Color, neutral or mono: writes popup.style to config.json (the popups read it on their next notification, the
     /// panel at once) and refreshes the panel.
-    func applyColors(_ on: Bool) {
-        setConfigStyle(on ? "color" : "mono")
+    func applyStyle(_ style: String) {
+        setConfigStyle(style)
         refresh()
         rebuildPanel(force: true)
     }
 
-    /// The options page, in four grouped boxes: "Colors" (one switch), "Menu bar" (the icon, one line), "Emoji" (a switch
-    /// and a row per family with its pictures) and "Panel" (three checkboxes).
+    /// The options page, in three grouped boxes: "Style" (three buttons: color, neutral, mono), "Menu bar" (the icon, one
+    /// line) and "Emoji" (a switch and a row per family with its pictures).
     func buildOptions(opaque: Bool) -> (NSView, String) {
         let WIDTH: CGFloat = 380, PAD: CGFloat = 14
         let inner = WIDTH - 2 * PAD
         let panel = PanelView(solid: opaque)
-        signatureInProgress = "OL\(L.code)\(PanelStyle.mono ? "m" : "")|\(opts.emojiFamily)|\(opts.bubble)|\(opts.usage)|\(opts.context)|\(opts.icon)|\(showAllFamilies)|"
+        signatureInProgress = "OL\(L.code)\(PanelStyle.mono ? "m" : "")|\(opts.emojiFamily)|\(opts.icon)|\(showAllFamilies)|"
         pendingRows = []
         pendingCells = []
         var y = PAD - 3     // a text button is 24 pt tall and its text sits 3 pt inside
@@ -2952,23 +2985,28 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             return b
         }
 
-        // 0. Colors: one switch for popup.style (color or mono); the note says what off means
-        label(L.sectionColors)
-        let boxColors = newBox()
-        let colorsOn = colorsEnabled()
-        signatureInProgress += "<colors:\(colorsOn)>"
-        let colorsRow = OptionRow(L.optColors, on: colorsOn, width: boxWidth, height: 40, inset: 12, asSwitch: true) { [unowned self] in
-            self.applyColors(!colorsOn)
+        // 0. Style: popup.style in three equal buttons; the note says what the chosen one means
+        label(L.sectionStyle)
+        let boxStyle = newBox()
+        let chosenStyle = selectedStyle()
+        signatureInProgress += "<style:\(chosenStyle)>"
+        let styleGap: CGFloat = 6, styleHeight: CGFloat = 30
+        let styleWidth = floor((rowWidth - 2 * styleGap) / 3)
+        y += INSIDE
+        for (k, style) in configStyles.enumerated() {
+            let b = StyleButton(name: L.styleName(style), chosen: style == chosenStyle, width: styleWidth, height: styleHeight) {
+                [unowned self] in self.applyStyle(style)
+            }
+            b.frame.origin = NSPoint(x: PAD + INSIDE + CGFloat(k) * (styleWidth + styleGap), y: y)
+            panel.addSubview(b)
         }
-        colorsRow.frame.origin = NSPoint(x: PAD, y: y)
-        panel.addSubview(colorsRow)
-        y += 40
-        boxColors.frame.size.height = 40
+        y += styleHeight + INSIDE
+        boxStyle.frame.size.height = styleHeight + 2 * INSIDE
         y += 8
-        let colorsNote = text(L.colorsNote, 11.5, .regular, .secondaryLabelColor, width: inner - 8, lines: 0)
-        colorsNote.frame.origin = NSPoint(x: PAD + 4, y: y)
-        panel.addSubview(colorsNote)
-        y += colorsNote.textSize.height + BETWEEN
+        let styleNote = text(L.styleNote(chosenStyle), 11.5, .regular, .secondaryLabelColor, width: inner - 8, lines: 0)
+        styleNote.frame.origin = NSPoint(x: PAD + 4, y: y)
+        panel.addSubview(styleNote)
+        y += styleNote.textSize.height + BETWEEN
 
         // 1. Menu bar: the icons in one line of 28 pt buttons
         label(L.sectionMenuBar)
@@ -2997,7 +3035,7 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         let box2Top = y
         let on = opts.emojiFamily != emojiOff
         signatureInProgress += "<emoji:\(on)>"
-        let toggle = OptionRow(L.emojiForEach, on: on, width: boxWidth, height: 40, inset: 12, asSwitch: true) { [unowned self] in
+        let toggle = OptionRow(L.emojiForEach, on: on, width: boxWidth, height: 40, inset: 12) { [unowned self] in
             if on {
                 self.applyOptions(["emoji_theme": emojiOff])
             } else {
@@ -3045,31 +3083,7 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         let note = text(L.emojiNote, 11.5, .regular, .secondaryLabelColor, width: inner - 8, lines: 0)
         note.frame.origin = NSPoint(x: PAD + 4, y: y)
         panel.addSubview(note)
-        y += note.textSize.height + BETWEEN
-
-        // 3. Panel: three checkboxes, with a thin rule between rows
-        label(L.sectionPanel)
-        let box3 = newBox()
-        let box3Top = y
-        let checks: [(String, String, Bool)] = [("bubble", L.optBubble, opts.bubble), ("usage", L.optUsage, opts.usage),
-                                                ("context", L.optContext, opts.context)]
-        for (k, (key, caption, isOn)) in checks.enumerated() {
-            signatureInProgress += "<\(key)>"
-            if k > 0 {
-                let rule = Separator(frame: NSRect(x: PAD + 12, y: y, width: boxWidth - 24, height: 1))
-                rule.alpha = 0.10
-                panel.addSubview(rule)
-                y += 1
-            }
-            let row = OptionRow(caption, on: isOn, width: boxWidth, height: 38, inset: 12) { [unowned self] in
-                self.applyOptions([key: !isOn])
-            }
-            row.frame.origin = NSPoint(x: PAD, y: y)
-            panel.addSubview(row)
-            y += row.frame.height
-        }
-        box3.frame.size.height = y - box3Top
-        y += PAD
+        y += note.textSize.height + PAD
 
         panel.frame = NSRect(x: 0, y: 0, width: WIDTH, height: ceil(y))
         return (panel, signatureInProgress)

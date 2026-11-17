@@ -8,7 +8,7 @@
    Click → jumps to the exact VS Code terminal running that session.
 2. **Menu bar** (`CCNotify Sessions.app`): one item and a panel that show every Claude session and its state
    (needs you · wrote to you · thinking), most relevant first. Click a session → same jump; hover → actions and the
-   whole last message. An options page sets the icon, the per-session emoji and what the panel shows.
+   whole last message. An options page sets the popup style, the icon and the per-session emoji.
 3. **Focus Terminal extension** (`ccnotify.focus-terminal`): tiny VS Code extension that reveals the right terminal.
 4. **Sounds per message type** (done · permission · question · agent), configurable.
 5. **Status line** (`statusline.py`): optional minimal one-line status for Claude Code.
@@ -153,11 +153,14 @@ dynamic colors resolve on every redraw, so light and dark follow the system.
   (a JSON in `state/queue/` and `open -n -g CCNotify.app`); it is dropped when the session changes state or ends.
 - **Limits:** the "Limits" block comes from `state/usage.json`; the "ctx NN %" of a row from `state/context/<id>.json`.
   Both are written by the status line, so without it there is neither.
-- **Options page** (the gear in the footer): a **Colors** switch (color ⇄ mono, see [Styles](#styles-added-after-visual-review)),
-  the icon of the status item (a line of SF Symbols), emoji on/off and the family, and three checkboxes (bubble, usage,
-  context). The checkboxes, icon and emoji are saved to `state/menubar/options.json`, not to
-  `config.json`: `{"icon", "emoji_theme": "<family>" | "none", "bubble", "usage", "context"}`. Unknown keys are kept; a
-  missing or unreadable file means the defaults (`bubble.left.and.bubble.right`, `nature`, everything on).
+- **Options page** (the gear in the footer), three grouped boxes: **Style** (one row of three equal buttons, Color ·
+  Neutral · Mono, with a one-line note for the chosen one; see [Styles](#styles-added-after-visual-review)), **Menu bar**
+  (the icon of the status item, a line of SF Symbols) and **Emoji** (on/off and the family). The icon and emoji are saved
+  to `state/menubar/options.json`, not to `config.json`:
+  `{"icon", "emoji_theme": "<family>" | "none", "bubble", "usage", "context"}`. Unknown keys are kept; a missing or
+  unreadable file means the defaults (`bubble.left.and.bubble.right`, `nature`, everything on). `bubble` (the bubble
+  with the whole message), `usage` (the "Limits" block) and `context` (the "ctx NN %" of each row) have no control in the
+  page any more, but they are still read: set one to `false` in `options.json` by hand and it is honored.
 - **Emoji:** families are the folders of `Contents/Resources/emoji/` (`nature`, `bugs`, `music`, `cozy`, `adventure`,
   `animals`, `fruits`, `gems`, `colors`; any other folder with PNGs is offered too). A session gets one from the chosen
   family and keeps it (`state/menubar/emoji-auto.json` `{"family", "assigned": {"<safe id>": "<name>.png"}}`): the file
@@ -179,6 +182,7 @@ points elsewhere):
 | `CCNOTIFY_TEST_USAGE=1` | Print one line per row of the "Limits" block and quit (`CCNOTIFY_TEST_NOW=<epoch>`, `TZ=…`). |
 | `CCNOTIFY_TEST_EMOJI=1` | Print `<id>\t<family>/<name>.png\tmanual\|auto` for each session and quit. |
 | `CCNOTIFY_TEST_OPTIONS=<json>` | Save those keys through the options page's code path, print `options.json` and quit. |
+| `CCNOTIFY_TEST_COLORS=color\|neutral\|mono` | Write `popup.style` through the Style selector's code path, print `config.json` and quit (exit 2 if it could not be written). |
 | `CCNOTIFY_TEST_CHOOSE=<id>=<family>/<name>.png` | Save that session's emoji by hand (empty value removes it) and quit. |
 | `CCNOTIFY_TEST_REMIND=<id>` / `CCNOTIFY_TEST_MINUTES_AS_SECONDS=1` | Set a "2 min" reminder, let the clock run 12 s, quit; minutes last seconds. |
 | `CCNOTIFY_TEST_MOUSE=<id>` | Move the real cursor over a row and away, noting what is open (the 180 ms and 600 ms timings). |
@@ -263,10 +267,11 @@ These refine everything above. When in doubt, this section wins.
   attention tint),
   `"mono"` (grayscale only; needs-you kinds use a filled symbol, semibold label and a stronger full border).
   Any other value, or a missing key, means `"color"` (validated in `hooks/notify.py`, and again in the popup app).
-- The **Colors** switch (first group of the menu bar's Options page) flips `popup.style` between `"color"` (on) and
-  `"mono"` (off); `"neutral"` counts as on. It is the one thing the menu bar app writes in `config.json`: it reads the
-  JSON, changes only `popup.style` (other keys kept, indent 2, atomic private write; a missing file is created with just
-  that key; a file that is not valid JSON is left untouched) and refreshes the panel. The popups pick it up on the next
+- The **Style** selector (first group of the menu bar's Options page: Color · Neutral · Mono) writes exactly that value
+  to `popup.style`; a missing or unknown value shows Color as chosen. It is the one thing the menu bar app writes in
+  `config.json`: it reads the JSON, changes only `popup.style` (other keys kept, indent 2, atomic private write; a missing
+  file is created with just that key; a file that is not valid JSON is left untouched) and refreshes the panel at once
+  (`mono` turns it grayscale). The popups pick it up on the next
   notification, because `notify.py` and the menu bar send `style` in each popup JSON.
 - `popup.compact_lines` (default 2): lines shown by older popups in the stack.
 - Layout: header row (small icon · project · kind) separated from the body by a hairline rule; the body uses the
