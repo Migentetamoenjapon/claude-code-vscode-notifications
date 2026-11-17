@@ -14,6 +14,9 @@
 
 Config:  $CCNOTIFY_HOME/config.json  ->  "statusline": {...}   (see docs/statusline.md)
 Cache:   $CCNOTIFY_HOME/state/statusline/
+Shared with the menu bar app (optional, read-only for it):
+         $CCNOTIFY_HOME/state/context/<session>.json  {"pct", "at"}  context used by that session
+         $CCNOTIFY_HOME/state/usage.json  {"five_hour": {"pct", "resets_at"}, "seven_day": {...}, "at"}
 Python 3.8+, standard library only.
 """
 import datetime
@@ -119,6 +122,93 @@ def write_json(path, obj):
     with open(tmp, "w") as f:
         json.dump(obj, f)
     os.replace(tmp, path)
+
+
+# ---------------------------------------------------------------- numbers for the menu bar app
+
+PANEL_REWRITE_S = 5      # an unchanged context % is not rewritten more often than this
+SAME_WINDOW = 60         # two "resets_at" less than a minute apart are the same limit window
+
+
+def session_file_name(sid):
+    """A session id as a file name; the same rule as hooks/notify.py and the menu bar app (safeName)."""
+    return re.sub(r"[^A-Za-z0-9._-]", "_", sid or "")[:128].lstrip(".") or "unknown"
+
+
+def mkdir_private(path):
+    if not os.path.isdir(path):
+        os.mkdir(path, 0o700)
+        os.chmod(path, 0o700)
+
+
+def write_private(path, obj):
+    """Atomic write, file mode 0600."""
+    tmp = "%s.%d.tmp" % (path, os.getpid())
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(obj, f)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        raise
+
+
+def merged_window(old, pct, reset):
+    """One limit window as {"pct", "resets_at"}, or None when there is nothing to say. Every session brings the
+    snapshot of its own last reply, so the newer window wins and, within the same window, the higher % (usage
+    only goes up)."""
+    old = old if isinstance(old, dict) else {}
+    old_pct, old_reset = num(old.get("pct")), num(old.get("resets_at"))
+    if pct is None:
+        return {"pct": old_pct, "resets_at": old_reset} if old_pct is not None else None
+    new = {"pct": pct, "resets_at": reset}
+    if old_pct is None:
+        return new
+    kept = {"pct": old_pct, "resets_at": old_reset}
+    if reset is None:                      # the new snapshot cannot say which window it belongs to
+        return kept if old_reset is not None or pct < old_pct else new
+    if old_reset is None:
+        return new
+    if reset > old_reset + SAME_WINDOW:
+        return new
+    return new if abs(reset - old_reset) <= SAME_WINDOW and pct >= old_pct else kept
+
+
+def save_for_panel(data, ctx_pct, five_pct, five_reset, week_pct, week_reset, now=None):
+    """Hand the numbers only the status line receives to the menu bar app: this session's context % and the
+    account's 5-hour / weekly usage. Writes nothing for data that is absent. May raise: the caller wraps it."""
+    now = time.time() if now is None else now
+    state = os.path.join(HOME, "state")
+    sid = data.get("session_id")
+    if isinstance(sid, str) and sid and ctx_pct is not None:
+        folder = os.path.join(state, "context")
+        mkdir_private(state)
+        mkdir_private(folder)
+        path = os.path.join(folder, session_file_name(sid) + ".json")
+        old = read_json(path)
+        same = (isinstance(old, dict) and num(old.get("pct")) == ctx_pct
+                and now - (num(old.get("at")) or 0) < PANEL_REWRITE_S)
+        if not same:
+            write_private(path, {"pct": ctx_pct, "at": now})
+    if five_pct is None and week_pct is None:
+        return
+    path = os.path.join(state, "usage.json")
+    old = read_json(path)
+    old = old if isinstance(old, dict) else {}
+    out = {}
+    for key, pct, reset in (("five_hour", five_pct, five_reset), ("seven_day", week_pct, week_reset)):
+        window = merged_window(old.get(key), pct, reset or None)
+        if window is not None:
+            out[key] = window
+    out["at"] = now
+    if all(out.get(k) == old.get(k) for k in ("five_hour", "seven_day")) and now - (num(old.get("at")) or 0) < PANEL_REWRITE_S:
+        return
+    mkdir_private(state)
+    write_private(path, out)
 
 
 # ---------------------------------------------------------------- language
@@ -457,6 +547,8 @@ def visible_width(s):
 def build(data):
     cfg, lang_setting = load_config()
     try:
+        os.makedirs(HOME, exist_ok=True)
+        mkdir_private(os.path.join(HOME, "state"))
         os.makedirs(CACHE_DIR, exist_ok=True)
     except Exception:
         pass
@@ -532,6 +624,12 @@ def build(data):
         seg["week"] = short["week"]
         if plan_week:
             seg["week"] += " %s$%.2f/$%.0f%s" % (SEC, plan_week * week_pct / 100, plan_week, RESET)
+
+    # numbers for the menu bar app (never lets a failure reach the line)
+    try:
+        save_for_panel(data, ctx_pct, five_pct, five_reset, week_pct, week_reset)
+    except Exception:
+        pass
 
     # optional market ticker (no network access unless one is configured)
     try:

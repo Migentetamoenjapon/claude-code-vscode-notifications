@@ -38,6 +38,7 @@ TEXT_CAP = 20000
 LOG_MAX_BYTES = 1_000_000
 STALE_QUEUE_SECONDS = 3600
 STALE_STATE_SECONDS = 7 * 24 * 3600
+ORPHAN_CONTEXT_SECONDS = 3600     # a context file with no session row, untouched for this long, is dropped
 DEDUPE_WINDOW_SECONDS = 120
 JOB_ID = re.compile(r"[A-Za-z0-9_-]{4,40}")  # short id of a background session, as `claude attach` takes it
 
@@ -119,6 +120,7 @@ class Paths(object):
         self.seen = os.path.join(self.state, "seen")
         self.ended = os.path.join(self.state, "ended")
         self.active = os.path.join(self.state, "active")
+        self.context = os.path.join(self.state, "context")   # <id>.json = {"pct", "at"}, written by the status line
         self.lock = os.path.join(self.sessions, ".lock")
         self.log = os.path.join(self.state, "ccnotify.log")
 
@@ -204,7 +206,7 @@ def mkdir_private(path):
 
 def ensure_dirs(paths):
     os.makedirs(paths.home, exist_ok=True)
-    for path in (paths.state, paths.queue, paths.sessions, paths.seen, paths.ended):
+    for path in (paths.state, paths.queue, paths.sessions, paths.seen, paths.ended, paths.context):
         mkdir_private(path)
 
 
@@ -270,6 +272,30 @@ def housekeeping(paths, now):
     sweep(paths.sessions, STALE_STATE_SECONDS, ".json")
     sweep(paths.seen, STALE_STATE_SECONDS)
     sweep(paths.ended, STALE_STATE_SECONDS)
+    sweep_context(paths, now)
+
+
+def sweep_context(paths, now):
+    """Drop context files (written by the status line) of sessions that are gone: the session ended after the
+    file was last written, it has no session row and has not been touched for an hour, or it is a week old."""
+    try:
+        names = os.listdir(paths.context)
+    except OSError:
+        return
+    for name in names:
+        if name.startswith(".") or not name.endswith(".json"):
+            continue
+        path = os.path.join(paths.context, name)
+        try:
+            written = os.path.getmtime(path)
+            ended = read_json(os.path.join(paths.ended, name[:-len(".json")])).get("at", 0)
+            ended = ended if isinstance(ended, (int, float)) else 0
+            has_row = os.path.exists(os.path.join(paths.sessions, name))
+            if (ended and ended >= written or now - written > STALE_STATE_SECONDS
+                    or (not has_row and now - written > ORPHAN_CONTEXT_SECONDS)):
+                os.remove(path)
+        except OSError:
+            pass
 
 
 # ----------------------------------------------------------------------------- text helpers
@@ -436,6 +462,8 @@ def write_session(paths, sid, fields, event_at):
         if isinstance(stored, (int, float)) and stored > event_at:
             return False
         data.update(fields)
+        if "state" in fields and fields["state"] != "needs":
+            data.pop("kind", None)  # why it needed you only means something while it needs you
         data.update(session=sid, updated_at=event_at)
         atomic_write(session_path(paths, sid), json.dumps(data, ensure_ascii=False))
         return True
@@ -447,6 +475,8 @@ def remove_session(paths, sid, event_at):
             os.remove(session_path(paths, sid))
         with contextlib.suppress(OSError):
             os.remove(os.path.join(paths.seen, safe_name(sid)))
+        with contextlib.suppress(OSError):
+            os.remove(os.path.join(paths.context, safe_name(sid) + ".json"))
         atomic_write(os.path.join(paths.ended, safe_name(sid)), json.dumps({"at": event_at}))
 
 
@@ -466,6 +496,8 @@ def drop_sessions_of_pid(paths, pid, keep_sid, job=""):
             if data.get("pid") == pid and data.get("session") != keep_sid and other_job == job:
                 with contextlib.suppress(OSError):
                     os.remove(os.path.join(paths.sessions, name))
+                with contextlib.suppress(OSError):
+                    os.remove(os.path.join(paths.context, name))
 
 
 def mark_seen(paths, sid, now):
@@ -708,17 +740,18 @@ class Hook(object):
         text = text.strip() or tr(self.lang, "needs_fallback")
         summary = "" if self.config["popup"]["private"] else one_line(text.replace("```", " "), 160)
         shown_sid = sid
+        row_kind = "permission" if kind == "permission" else "question"  # why the row needs you (agent -> question)
         if kind == "agent":
             # One row per conversation: the agent view never gets a row of its own (nothing would ever clear
             # it). The question goes onto the job's own row, if it has one.
             target = session_of_job(self.paths, job, sid)
             if target:
-                if not write_session(self.paths, target, {"state": "needs", "since": self.now, "summary": summary},
-                                     self.now):
+                if not write_session(self.paths, target, {"state": "needs", "since": self.now, "summary": summary,
+                                                          "kind": row_kind}, self.now):
                     return self.record(project, sid, "notification", "%s superseded" % ntype)
                 shown_sid = target  # closing the popup marks the job's row as seen
-        elif not write_session(self.paths, sid, dict(base, state="needs", since=self.now, summary=summary),
-                               self.now):
+        elif not write_session(self.paths, sid, dict(base, state="needs", since=self.now, summary=summary,
+                                                     kind=row_kind), self.now):
             return self.record(project, sid, "notification", "%s superseded" % ntype)
         title = "%s · %s" % (project, agent) if agent else project
         return self.show(kind, title, text, project, shown_sid, base, "notification", ntype)

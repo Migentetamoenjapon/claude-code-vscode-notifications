@@ -127,6 +127,83 @@ class StatuslineTest(unittest.TestCase):
         self.assertLess(len(narrow), len(wide))
         self.assertIn("wk 45%", narrow)       # the weekly % is never dropped
 
+    # -- numbers handed to the menu bar app
+
+    def state_path(self, *parts):
+        return os.path.join(self.home, "state", *parts)
+
+    def test_context_file_written_with_pct(self):
+        sample = self.sample_with_limits()
+        sample["session_id"] = "sess/odd id"
+        self.run_script(json.dumps(sample))
+        path = self.state_path("context", "sess_odd_id.json")   # same safe-name rule as notify.py
+        with open(path) as f:
+            saved = json.load(f)
+        self.assertEqual(saved["pct"], 52.3)
+        self.assertAlmostEqual(saved["at"], time.time(), delta=60)
+        self.assertEqual(os.stat(path).st_mode & 0o777, 0o600)
+        self.assertEqual(os.stat(self.state_path("context")).st_mode & 0o777, 0o700)
+        self.assertEqual(os.stat(self.state_path()).st_mode & 0o777, 0o700)
+
+    def test_usage_file_written_with_both_windows(self):
+        sample = self.sample_with_limits()
+        self.run_script(json.dumps(sample))
+        path = self.state_path("usage.json")
+        with open(path) as f:
+            saved = json.load(f)
+        limits = sample["rate_limits"]
+        self.assertEqual(saved["five_hour"], {"pct": 12.0, "resets_at": limits["five_hour"]["resets_at"]})
+        self.assertEqual(saved["seven_day"], {"pct": 45.0, "resets_at": limits["seven_day"]["resets_at"]})
+        self.assertAlmostEqual(saved["at"], time.time(), delta=60)
+        self.assertEqual(os.stat(path).st_mode & 0o777, 0o600)
+
+    def test_usage_keeps_the_newer_window_and_the_higher_pct(self):
+        sample = self.sample_with_limits()
+        self.run_script(json.dumps(sample))
+        stale = json.loads(json.dumps(sample))                 # another session with an older snapshot
+        stale["rate_limits"]["five_hour"]["used_percentage"] = 3
+        self.run_script(json.dumps(stale))
+        with open(self.state_path("usage.json")) as f:
+            self.assertEqual(json.load(f)["five_hour"]["pct"], 12.0)
+        newer = json.loads(json.dumps(sample))                 # the 5-hour window rolled over
+        newer["rate_limits"]["five_hour"] = {"used_percentage": 1,
+                                             "resets_at": sample["rate_limits"]["five_hour"]["resets_at"] + 18000}
+        self.run_script(json.dumps(newer))
+        with open(self.state_path("usage.json")) as f:
+            five = json.load(f)["five_hour"]
+        self.assertEqual((five["pct"], five["resets_at"]),
+                         (1.0, sample["rate_limits"]["five_hour"]["resets_at"] + 18000))
+
+    def test_one_window_only_and_missing_reset(self):
+        self.run_script(json.dumps({"session_id": "s1", "model": {"display_name": "Opus"},
+                                    "rate_limits": {"five_hour": {"used_percentage": 20}}}))
+        with open(self.state_path("usage.json")) as f:
+            saved = json.load(f)
+        self.assertEqual(saved["five_hour"], {"pct": 20.0, "resets_at": None})
+        self.assertNotIn("seven_day", saved)
+        self.assertFalse(os.path.exists(self.state_path("context", "s1.json")))   # no context % in that input
+
+    def test_nothing_written_when_data_is_absent(self):
+        self.run_script(json.dumps({"session_id": "s1", "model": {"display_name": "Opus"}}))
+        self.assertFalse(os.path.exists(self.state_path("usage.json")))
+        self.assertFalse(os.path.exists(self.state_path("context")))
+        self.run_script(json.dumps({"model": {"display_name": "Opus"}, "context_window": {"used_percentage": 10}}))
+        self.assertFalse(os.path.exists(self.state_path("context")))               # no session id: no file name
+
+    def test_malformed_input_writes_nothing_and_does_not_crash(self):
+        for bad in ("not json", "", "[1, 2]", json.dumps({"session_id": 7, "context_window": "x",
+                                                          "rate_limits": {"five_hour": {"used_percentage": "a"}}})):
+            self.run_script(bad)
+        self.assertFalse(os.path.exists(self.state_path("usage.json")))
+        self.assertFalse(os.path.exists(self.state_path("context")))
+
+    def test_unwritable_state_does_not_crash_the_line(self):
+        os.makedirs(self.state_path())
+        with open(self.state_path("context"), "w") as f:       # a file where the folder should be
+            f.write("x")
+        out = self.run_script(json.dumps(self.sample_with_limits()))
+        self.assertIn("ctx 52%", out)
+
     def test_no_ticker_means_no_network_files(self):
         self.run_script(json.dumps(self.sample_with_limits()))
         cache = os.path.join(self.home, "state", "statusline")

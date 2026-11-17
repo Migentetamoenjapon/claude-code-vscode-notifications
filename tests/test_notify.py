@@ -521,6 +521,12 @@ class NotificationEvent(HookTestCase):
         self.assertEqual(self.session_names(), ["job-session.json"])
         self.assertEqual(len(self.queued()), 1)
 
+    def test_agent_relay_marks_the_jobs_row_as_a_question(self):
+        env = self.job_session()
+        self.assertNotIn("kind", self.session("job-session"))
+        self.hook(now=NOW + 30, env=env).handle("notification", payload("payload_agent_input.json"))
+        self.assertEqual(self.session("job-session")["kind"], "question")
+
     def test_agent_relay_picks_the_newest_row_of_the_job(self):
         env = self.job_session(sid="job-old")
         self.hook(now=NOW + 5, env=dict(env, CLAUDE_JOB_DIR="/Users/you/.claude/jobs/bbbb2222")).handle(
@@ -807,6 +813,84 @@ class Housekeeping(HookTestCase):
         self.hook({"language": "en"}).handle("session-end", payload("payload_stop.json"))
         self.assertFalse(os.path.exists(old))
         self.assertTrue(os.path.exists(fresh))
+
+
+class RowKindAndContext(HookTestCase):
+    """`kind` on a "needs" row (why it needs you) and the per-session context files the status line writes."""
+
+    def context_dir(self):
+        return os.path.join(self.home, "state", "context")
+
+    def put_context(self, name, age, pct=40):
+        os.makedirs(self.context_dir(), exist_ok=True)
+        path = os.path.join(self.context_dir(), name)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({"pct": pct, "at": NOW - age}, f)
+        os.utime(path, (NOW - age, NOW - age))
+        return path
+
+    def test_permission_row_has_kind_permission(self):
+        self.hook({"language": "en"}).handle("notification", payload("payload_permission.json"))
+        self.assertEqual(self.session("sess-perm-0001")["kind"], "permission")
+
+    def test_question_row_has_kind_question(self):
+        data = payload("payload_idle.json", notification_type="elicitation_dialog", message="Pick a color")
+        self.hook({"language": "en"}).handle("notification", data)
+        state = self.session(data["session_id"])
+        self.assertEqual((state["state"], state["kind"]), ("needs", "question"))
+
+    def test_kind_is_dropped_when_the_row_leaves_needs(self):
+        sid = "sess-perm-0001"
+        self.hook({"language": "en"}).handle("notification", payload("payload_permission.json"))
+        self.assertEqual(self.session(sid)["kind"], "permission")
+        self.hook(now=NOW + 5).handle("prompt", payload("payload_permission.json", prompt="go on"))
+        state = self.session(sid)
+        self.assertEqual(state["state"], "thinking")
+        self.assertNotIn("kind", state)
+
+    def test_kind_is_dropped_on_stop_and_replaced_by_a_new_need(self):
+        sid = "sess-perm-0001"
+        self.hook({"language": "en"}).handle("notification", payload("payload_permission.json"))
+        self.hook(now=NOW + 5).handle("stop", payload("payload_permission.json", last_assistant_message="Done."))
+        state = self.session(sid)
+        self.assertEqual(state["state"], "wrote")
+        self.assertNotIn("kind", state)
+        question = payload("payload_idle.json", session_id=sid, notification_type="elicitation_dialog",
+                           message="Which?")
+        self.hook(now=NOW + 10).handle("notification", question)
+        self.assertEqual(self.session(sid)["kind"], "question")
+
+    def test_session_end_removes_the_context_file(self):
+        self.hook({"language": "en"}).handle("prompt", payload("payload_stop.json", prompt="x"))
+        path = self.put_context("sess-stop-0004.json", 1)
+        self.hook(now=NOW + 5).handle("session-end", payload("payload_stop.json"))
+        self.assertFalse(os.path.exists(path))
+
+    def test_housekeeping_removes_orphan_and_ended_context_files(self):
+        paths = notify.Paths(self.home)
+        notify.ensure_dirs(paths)
+        orphan = self.put_context("gone-session.json", 7200)            # no row, untouched for hours
+        fresh_orphan = self.put_context("new-session.json", 30)         # no row yet, but just written
+        ancient = self.put_context("old-session.json", 8 * 86400)
+        with_row = self.put_context("sess-stop-0004.json", 7200)
+        ended = self.put_context("ended-session.json", 100)
+        with open(os.path.join(paths.ended, "ended-session"), "w", encoding="utf-8") as f:
+            json.dump({"at": NOW - 50}, f)
+        stranger = os.path.join(self.context_dir(), "notes.txt")        # not ours: left alone
+        open(stranger, "w").close()
+        os.utime(stranger, (NOW - 9 * 86400, NOW - 9 * 86400))
+        notify.atomic_write(os.path.join(paths.sessions, "sess-stop-0004.json"),
+                            json.dumps({"session": "sess-stop-0004"}))
+        notify.housekeeping(paths, NOW)
+        self.assertFalse(os.path.exists(orphan))
+        self.assertFalse(os.path.exists(ancient))
+        self.assertFalse(os.path.exists(ended))
+        self.assertTrue(os.path.exists(fresh_orphan))
+        self.assertTrue(os.path.exists(with_row))
+        self.assertTrue(os.path.exists(stranger))
+
+    def test_housekeeping_without_a_context_folder_is_fine(self):
+        notify.housekeeping(notify.Paths(self.home), NOW)  # nothing exists yet
 
 
 class PrivacyAndLog(HookTestCase):
