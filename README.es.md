@@ -116,7 +116,7 @@ Al tocar un aviso, o una sesión en la barra de menú:
 
 Lo hace una extensión mínima de VS Code incluida (`ccnotify.focus-terminal`), que reconoce la terminal por el proceso de
 Claude. Las **sesiones en segundo plano** (`claude --bg`) no tienen terminal propia; para esas, el clic abre una terminal
-con `claude attach <id>`, que entra directo a esa conversación, y la reutiliza mientras siga en esa conversación. Funciona con **VS Code, Insiders, Cursor, Windsurf y VSCodium**. Si usas otra app (Terminal, iTerm2), solo la
+con `claude attach <id>`, que entra directo a esa conversación, y la reutiliza mientras siga en esa conversación. El clic también funciona cuando la sesión se muestra en la vista de agentes de Claude Code (`claude agents`): una ventana abre la conversación en una pestaña nueva. Funciona con **VS Code, Insiders, Cursor, Windsurf y VSCodium**. Si usas otra app (Terminal, iTerm2), solo la
 trae al frente.
 
 ## 5. Barra de menú
@@ -275,7 +275,7 @@ las tiene todas). Los cambios se aplican desde el siguiente aviso.
 | Síntoma | Qué hacer |
 |---|---|
 | No aparece ningún aviso | Abre una sesión **nueva** de Claude Code (los hooks se cargan al empezar). Después mira `~/.claude/ccnotify/state/ccnotify.log`. |
-| El clic no llega a la terminal | Revisa que la extensión esté activa (Extensiones → busca `ccnotify`). ¿Instalaste otro editor? Vuelve a correr `./install.sh`. |
+| El clic no llega a la terminal | Revisa que la extensión esté activa (Extensiones → busca `ccnotify`). ¿Instalaste otro editor? Vuelve a correr `./install.sh`. Después de actualizar la extensión, recarga la ventana del editor (Developer: Reload Window). |
 | Usas Claude en el panel de VS Code, no en una terminal | Los avisos y sonidos funcionan; el clic trae la ventana, pero no hay terminal que seleccionar. |
 | Suena demasiado | Sube `sounds.done.min_turn_seconds`, pon `"sound": ""` en un tipo o activa `quiet_hours`. |
 

@@ -116,7 +116,7 @@ Click a popup (or a session in the menu bar):
 
 It works through a tiny bundled VS Code extension (`ccnotify.focus-terminal`) that matches the terminal's shell to the
 Claude process. **Background sessions** (`claude --bg`) have no terminal of their own, so for those the click opens a
-terminal running `claude attach <id>` — straight into that conversation — and reuses it for as long as it is still on that conversation. Works with **VS Code, Insiders, Cursor, Windsurf and VSCodium**. Other hosts (Terminal, iTerm2) are
+terminal running `claude attach <id>` — straight into that conversation — and reuses it for as long as it is still on that conversation. Clicking also works when the session is shown in Claude Code's agent view (`claude agents`): one window opens the conversation in a new tab. Works with **VS Code, Insiders, Cursor, Windsurf and VSCodium**. Other hosts (Terminal, iTerm2) are
 just brought to the front.
 
 ## 5. Menu bar
@@ -274,7 +274,7 @@ all). Changes apply from the next notification.
 | Symptom | Fix |
 |---|---|
 | No popup at all | Start a **new** Claude Code session (hooks load at start). Then read `~/.claude/ccnotify/state/ccnotify.log`. |
-| Click doesn't reach the terminal | Make sure the extension is enabled (Extensions → search `ccnotify`). Installed a new editor? Run `./install.sh` again. |
+| Click doesn't reach the terminal | Make sure the extension is enabled (Extensions → search `ccnotify`). Installed a new editor? Run `./install.sh` again. After updating the extension, reload the editor window (Developer: Reload Window). |
 | Claude runs in the VS Code panel, not a terminal | Popups and sounds work; the click brings the window forward, but there's no terminal to select. |
 | Too many sounds | Raise `sounds.done.min_turn_seconds`, set `"sound": ""` for a kind, or turn on `quiet_hours`. |
 

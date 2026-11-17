@@ -9,6 +9,9 @@ Two steps:
    parents...]}`, written atomically; for a background session also `job`, `cwd`, `claude` and `project`, the
    name shown on the terminal tab). The CCNotify "Focus Terminal" extension, running in every window of
    VS Code and its forks, looks for the terminal whose shell is in that list, shows it and raises its window.
+   If no window has such a terminal (a session hosted by the background daemon, browsed in the agent view) and
+   there is a `job`, the extension picks one window by priority and claims the request with a `focus-<at>.claim`
+   file beside the request file; that window opens `claude attach <job>`.
 2. Ask macOS to open the most specific folder the editor already has open that contains `cwd`
    (`open -b <host> <folder>`): if a window already has it, the editor just focuses it, no new window.
    If no open folder matches (e.g. a window without a folder) or the host is another app (Terminal, iTerm2...),

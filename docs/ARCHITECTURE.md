@@ -36,6 +36,7 @@ Nothing leaves the machine. No telemetry. No network calls except the optional m
 | Active popups (stacking) | `state/active/<session-short-id>__<pid>` containing `"<created-epoch> <height>"` |
 | Session states (menu bar) | `state/sessions/<session-id>.json` |
 | Focus request | `state/focus-request.json` → `{"at": <epoch seconds>, "pids": [<claude pid>, <its parents>...]}`; for a background session also `"job"`, `"cwd"`, `"claude"` (path of the command, or `""`) and `"project"` (label for the terminal tab; omitted for the home folder) |
+| Focus claim | `state/focus-<at>.claim` (empty file; created with `wx` by the one extension window that handles a request; removed after 60 s) |
 | Decision log (no message text) | `state/ccnotify.log` (rotated at 1 MB) |
 | Statusline | `~/.claude/ccnotify/statusline/statusline.py` |
 | Statusline cache | `~/.claude/ccnotify/state/statusline/` |
@@ -237,7 +238,17 @@ These refine everything above. When in doubt, this section wins.
   none, opens a new one; it never types into the main session's terminal. A terminal is never reused by its name:
   pressing ← inside `claude attach` turns it into the agent view, where any other conversation can be opened, while
   the tab keeps its old name. Each click asks `ps` what every terminal is running (its own process or a command
-  started from its shell). Terminals that moved on are left open.
+  started from its shell, at any depth). Terminals that moved on are left open.
+- Sessions hosted by the background daemon (newer Claude Code): the pid chain is `[session, pty host, daemon]` with no
+  terminal shell, so no window owns the request, and the user browses sessions in the agent view (`claude agents`) in
+  some terminal. For a request with a valid `job` and no owner, every window computes a priority: 1 it has a terminal
+  running `claude attach <job>`; 2 it has a terminal running the agent view; 3 a workspace folder (file scheme, not the
+  home folder) contains the session's project folder (`cwd` cut at `/.claude/worktrees/`); 4 anything else. It waits
+  `priority × 600 ms` and then claims the request by creating `focus-<at>.claim` (`<at>` = the request's `at`, digits
+  and dots only) in the same `state/` folder with the open flag `wx`. Only the first creation succeeds and acts (show or
+  create the `claude attach <job>` terminal, raise the window); `EEXIST` means another window won and this one does
+  nothing; any other error means proceed. The owner window (priority 0) claims at once. Claim files older than 60 s are
+  removed on each claim. Without a `job` and without an owner the request is ignored, as before.
 - "`<name>` needs your input" comes from the agent view, a session of its own with no job id. `notify.py` looks the
   name up in `<claude config>/jobs/<id>/state.json` (`name`; newest `updatedAt` wins) and puts that id in `focus.job`,
   so the click opens the session that asked. The same id drops the popup when that job announced its own "done"
