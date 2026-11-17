@@ -6,8 +6,9 @@
 1. **Popup** (`CCNotify.app`): a translucent card at the top-right that shows Claude's last message rendered as
    Markdown (bold, code, lists, headings, real tables, scroll for long messages) when Claude finishes or needs you.
    Click → jumps to the exact VS Code terminal running that session.
-2. **Menu bar** (`CCNotify Sessions.app`): one item that shows every Claude session and its state
-   (needs you · wrote to you · thinking). Click a session → same jump.
+2. **Menu bar** (`CCNotify Sessions.app`): one item and a panel that show every Claude session and its state
+   (needs you · wrote to you · thinking), most relevant first. Click a session → same jump; hover → actions and the
+   whole last message. An options page sets the icon, the per-session emoji and what the panel shows.
 3. **Focus Terminal extension** (`ccnotify.focus-terminal`): tiny VS Code extension that reveals the right terminal.
 4. **Sounds per message type** (done · permission · question · agent), configurable.
 5. **Status line** (`statusline.py`): optional minimal one-line status for Claude Code.
@@ -35,6 +36,10 @@ Nothing leaves the machine. No telemetry. No network calls except the optional m
 | Popup queue | `state/queue/<uuid>.json` (popup deletes the file after reading it) |
 | Active popups (stacking) | `state/active/<session-short-id>__<pid>` containing `"<created-epoch> <height>"` |
 | Session states (menu bar) | `state/sessions/<session-id>.json` |
+| Context of each session | `state/context/<session-id>.json` → `{"pct", "at"}`; written by the status line (optional), removed with the session |
+| Account usage | `state/usage.json` → `{"five_hour": {"pct", "resets_at"}, "seven_day": {…}, "at"}`; written by the status line (optional). Without it the panel has no "Limits" block |
+| Menu bar app's own files | `state/menubar/` (0700, files 0600), written only by the menu bar app: `pins/<safe id>` · `reminders/<safe id>.json` · `options.json` · `emoji-auto.json` · `emoji-chosen.json` (see [Menu bar app](#menu-bar-app)) |
+| Emoji pictures | `assets/emoji/<family>/*.png` in the repo (Fluent Emoji, MIT, see `assets/emoji/LICENSE`); `scripts/build.sh` copies them to `CCNotify Sessions.app/Contents/Resources/emoji/` |
 | Focus request | `state/focus-request.json` → `{"at": <epoch seconds>, "pids": [<claude pid>, <its parents>...]}`; for a background session also `"job"`, `"cwd"`, `"claude"` (path of the command, or `""`) and `"project"` (label for the terminal tab; omitted for the home folder) |
 | Focus claim | `state/focus-<at>.claim` (empty file; created with `wx` by the one extension window that handles a request; removed after 60 s) |
 | Decision log (no message text) | `state/ccnotify.log` (rotated at 1 MB) |
@@ -118,7 +123,8 @@ The popup must work with only `title`, `kind`, `text` (everything else has defau
 {
   "session": "<full id>", "project": "my-project", "cwd": "/path", "transcript": "/path/x.jsonl",
   "host": "com.microsoft.VSCode", "focus": {"host": "…", "cwd": "/path", "pid": 1234, "job": "<optional>"},
-  "pid": 1234, "state": "thinking" | "needs" | "wrote", "since": <epoch>, "updated_at": <epoch>,
+  "pid": 1234, "state": "thinking" | "needs" | "wrote", "kind": "permission" | "question" (only while "needs"),
+  "since": <epoch>, "updated_at": <epoch>,
   "summary": "one-line summary", "request": "user's last prompt (short)", "tasks": 0,
   "turn_started_at": <epoch>, "done_text": "…", "done_at": <epoch>
 }
@@ -127,6 +133,60 @@ The popup must work with only `title`, `kind`, `text` (everything else has defau
 `pid` is the session's own Claude Code process (not a shared ancestor): the menu bar drops a session when that
 process is gone. "Seen" is not stored here: a session is seen when `state/seen/<id>` holds an epoch >= `since`.
 `state/ended/<id>` is a tombstone written by `SessionEnd` so a late async hook cannot bring the session back.
+
+## Menu bar app
+
+`src/menubar/main.swift` (one file, AppKit, macOS 12+). The status item is an SF Symbol (a template, so the bar paints
+it) plus, when sessions wait for you, one number. A click opens an `NSPopover` with one list of rows, most relevant
+first: pinned, needs you (oldest first), finished and unread, reminder pending, working, read. Everything is hand drawn;
+dynamic colors resolve on every redraw, so light and dark follow the system.
+
+- **Row:** `[emoji] state word · project · "2 agents · ctx 62 % · 3 min" · [pin]`. The state word and the colors come
+  from the *tone* of the row (`permission`/`question` from `kind`, `needs`, `finished`, `reminded`, `working`, `read`);
+  `popup.style: "mono"` makes all of it grayscale (the emoji too).
+- **Hover:** a mouse clock (every 30 ms, not tracking areas, which die with each rebuild) opens a row after 180 ms
+  (Go to chat · Remind me · Mark as read · Pin) and, after 600 ms of rest, shows a bubble with the whole last message
+  beside the panel. `popup.private` keeps message text out of everything, so there is no bubble then.
+- **Live state:** besides the hooks it follows each session's transcript in memory (permission approved, request
+  interrupted, you typed) so a state does not stay stale when no hook fires. It never writes the session files.
+- **Reminders:** `state/menubar/reminders/<safe id>.json` `{"at", "since"}`. When one comes due the usual popup is shown
+  (a JSON in `state/queue/` and `open -n -g CCNotify.app`); it is dropped when the session changes state or ends.
+- **Limits:** the "Limits" block comes from `state/usage.json`; the "ctx NN %" of a row from `state/context/<id>.json`.
+  Both are written by the status line, so without it there is neither.
+- **Options page** (the gear in the footer): the icon of the status item (a line of SF Symbols), emoji on/off and
+  the family, and three checkboxes (bubble, usage, context). Saved to `state/menubar/options.json`, never to
+  `config.json`: `{"icon", "emoji_theme": "<family>" | "none", "bubble", "usage", "context"}`. Unknown keys are kept; a
+  missing or unreadable file means the defaults (`bubble.left.and.bubble.right`, `nature`, everything on).
+- **Emoji:** families are the folders of `Contents/Resources/emoji/` (`nature`, `bugs`, `music`, `cozy`, `adventure`,
+  `animals`, `fruits`, `gems`, `colors`; any other folder with PNGs is offered too). A session gets one from the chosen
+  family and keeps it (`state/menubar/emoji-auto.json` `{"family", "assigned": {"<safe id>": "<name>.png"}}`): the file
+  its id hashes to (FNV-1a) or, if another open session has it, the next free one (a repeat only if none is free).
+  Clicking the emoji of a row opens a picker with every family; the choice goes to `emoji-chosen.json`
+  `{"<safe id>": "<family>/<name>.png"}` and rules over the automatic one (which steps aside for it). "Automatic" removes
+  it. Entries of ended sessions are dropped when their session file is gone. Changing the family gives everyone a new
+  emoji; "none" shows no emoji column.
+- **Ownership:** the app writes only under `state/menubar/` (atomic temp file + rename, 0600 in a 0700 folder). Deleting
+  that folder resets pins, reminders, options and emoji.
+
+Test hooks of the app (inert unless set; all read the environment, none touches a real install when `CCNOTIFY_HOME`
+points elsewhere):
+
+| Variable | Effect |
+|---|---|
+| `CCNOTIFY_TEST_ORDER=1` | Print the session ids in list order and quit. |
+| `CCNOTIFY_TEST_BAR=1` | Print `<number>\t<tooltip>` (what the bar shows) and quit. |
+| `CCNOTIFY_TEST_USAGE=1` | Print one line per row of the "Limits" block and quit (`CCNOTIFY_TEST_NOW=<epoch>`, `TZ=…`). |
+| `CCNOTIFY_TEST_EMOJI=1` | Print `<id>\t<family>/<name>.png\tmanual\|auto` for each session and quit. |
+| `CCNOTIFY_TEST_OPTIONS=<json>` | Save those keys through the options page's code path, print `options.json` and quit. |
+| `CCNOTIFY_TEST_CHOOSE=<id>=<family>/<name>.png` | Save that session's emoji by hand (empty value removes it) and quit. |
+| `CCNOTIFY_TEST_REMIND=<id>` / `CCNOTIFY_TEST_MINUTES_AS_SECONDS=1` | Set a "2 min" reminder, let the clock run 12 s, quit; minutes last seconds. |
+| `CCNOTIFY_TEST_MOUSE=<id>` | Move the real cursor over a row and away, noting what is open (the 180 ms and 600 ms timings). |
+| `CCNOTIFY_TEST_NAV=<id>` | Open the panel and do what the clicks do (options page, switches, icon, emoji picker), noting each step. |
+| `CCNOTIFY_OPEN_MENU=1` | Open the panel after a second. |
+| `CCNOTIFY_CAPTURE_MENU=<png>` | Open the panel, grab its window (no Screen Recording permission needed) over the status item and quit. With `CCNOTIFY_THEME=light\|dark`, `CCNOTIFY_CAPTURE_SCALE`, and what to show: `CCNOTIFY_CAPTURE_OPEN=<id>`, `CCNOTIFY_CAPTURE_BUBBLE=<id>`, `CCNOTIFY_CAPTURE_REMIND=<id>`, `CCNOTIFY_CAPTURE_PICKER=<id>`, `CCNOTIFY_CAPTURE_OPTIONS=1`, `CCNOTIFY_CAPTURE_ALL_FAMILIES=1`. |
+| `CCNOTIFY_EMOJI_DIR=<folder>` | Read the emoji families from there instead of the app bundle. |
+
+`tests/render/render_menubar.sh` uses the capture hooks (with fictional sessions) to make `docs/img/menubar-*.png`.
 
 ## Supported editors
 
@@ -265,7 +325,8 @@ These refine everything above. When in doubt, this section wins.
   editor CLI it finds (`code`, `code-insiders`, `cursor`, `codium`, `windsurf`, also looked up inside the app bundles).
   `--dry-run` prints what it would do. Honors `CCNOTIFY_HOME` / `CLAUDE_CONFIG_DIR` (tests install into a temp dir).
 - `uninstall.sh` removes exactly what install added (hooks entries, statusLine only if it is ours, LaunchAgent, apps,
-  extension) and `--purge` deletes `$CCNOTIFY_HOME` including state.
+  extension) and `--purge` deletes `$CCNOTIFY_HOME` including state. Without `--purge`, `state/` (and so
+  `state/menubar/`: pins, options, emoji) is kept, like the rest of the state.
 
 ### Later (not v1)
 Package as a Claude Code plugin (`hooks/hooks.json` + `${CLAUDE_PLUGIN_ROOT}`); single long-running process that draws

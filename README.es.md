@@ -45,7 +45,7 @@ bienvenido: ideas, errores o «esto podría ser más simple»; solo [abre un iss
 | 2 | **Estilos** | `color` (un color por tipo, por defecto), `neutral` o `mono` (grises). |
 | 3 | **Mensajes largos y pila** | Los largos tienen scroll; los anteriores se achican a dos líneas. |
 | 4 | **Ir a la terminal** | Un clic → la ventana correcta de VS Code y la terminal exacta. |
-| 5 | **Barra de menú** | Todas las sesiones de un vistazo: te necesita · te escribió · pensando. |
+| 5 | **Barra de menú** | Todas las sesiones en un panel, de la más a la menos relevante: al pasar el ratón, acciones y el mensaje completo; fijar, un recordatorio para después, límites y un emoji opcional por sesión. |
 | 6 | **Sonidos** | Un sonido distinto por tipo de mensaje, con horas de silencio. |
 | 7 | **Línea de estado** | Una línea discreta al pie de Claude Code: modelo, contexto, costo de la sesión y límites. |
 | | **Instalar / desinstalar** | Un script para cada cosa; respeta tus hooks y respalda tu configuración. |
@@ -121,29 +121,42 @@ trae al frente.
 
 ## 5. Barra de menú
 
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/menubar-es-dark.png"><img src="docs/img/menubar-es-light.png" width="467" alt="Ícono de la barra de menú con un número y su menú abierto: las sesiones agrupadas en Te necesitan, Te escribieron, Pensando y Esperan que escribas"></picture></p>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/menubar-es-dark.png"><img src="docs/img/menubar-es-light.png" width="434" alt="El ícono de la barra de menú con un número y su panel abierto: una fila suave por sesión, con emoji, uso de contexto y los límites de la cuenta"></picture></p>
 
-Dos globos de diálogo en la barra de menú muestran el estado más urgente de todas tus sesiones. El número de al lado
-cuenta lo que te espera: las sesiones que te necesitan más los mensajes que todavía no viste.
+El ícono de la barra de menú (dos globos de diálogo, por defecto) cuenta lo que te espera: las sesiones que te necesitan
+más las que terminaron y todavía no viste. Sin número, no hay nada pendiente. Al tocarlo se abre una lista con una caja
+por cada sesión abierta, **de la más a la menos relevante**: las que fijaste · te necesitan · terminaron sin leer · con
+recordatorio · trabajando · leídas.
 
-| Ícono | Qué significa |
-|---|---|
-| Relleno, naranja, con número | Una sesión **te necesita** (permiso, pregunta, agente). |
-| Relleno, verde, con número | Una sesión **te escribió** y todavía no lo viste. |
-| Contorno, gris | Las sesiones están **pensando**. |
-| Contorno, sin color | No hay nada pendiente. |
-
-Al abrirlo ves todas las sesiones, agrupadas: **Te necesitan · Te escribieron · Pensando · Esperan que escribas**.
-
-- Cada fila muestra el proyecto, el estado, hace cuánto (y cuántos agentes siguen trabajando) y una línea con lo que
-  dijo Claude o lo que le pediste.
+- Cada fila muestra el estado, el proyecto y, a la derecha, `2 agentes · ctx 62 % · 3 min`: los agentes que siguen
+  trabajando, cuánto contexto lleva usado y hace cuánto está en ese estado.
 - Toca una fila para [ir a la terminal de esa sesión](#4-ir-a-la-terminal-exacta).
-- **Marcar todo como visto** limpia los no leídos. Una sesión sale de la lista cuando la cierras.
-- Arranca sola al iniciar sesión en la Mac.
+- Deja el ratón sobre una fila y se abre: **Ir al chat** · **Recuérdame** (en 2, 5 o 15 min; el aviso vuelve cuando
+  llega la hora) · **Marcar leída** · **Fijar** (la deja arriba).
+- Si sigues ahí, aparece al lado del panel un globo con el último mensaje completo (no con `"popup": { "private": true }`).
 
-En el estilo `mono` nada lleva color: el estado se nota por la forma del ícono y de la marca de cada fila.
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/menubar-bubble-dark.png"><img src="docs/img/menubar-bubble-light.png" width="640" alt="Una fila abierta con sus botones y, al lado del panel, el globo con el último mensaje completo de Claude"></picture></p>
 
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/menubar-mono-dark.png"><img src="docs/img/menubar-mono-light.png" width="434" alt="El mismo menú en estilo mono: en grises, con una marca distinta para cada estado"></picture></p>
+- **Límites** al final: el uso de 5 horas y de la semana, con una barra y cuándo se reinicia cada uno. Junto con el
+  `ctx` de cada fila, viene de la [línea de estado](#7-línea-de-estado); sin ella no hay ni lo uno ni lo otro.
+- **Marcar todo como leído** limpia los no leídos. Una sesión sale de la lista cuando la cierras. La app arranca sola al
+  iniciar sesión en la Mac.
+
+**Opciones.** El engranaje junto a Salir abre una página con lo que muestra el panel y cómo se ve: el **ícono** de la
+barra de menú, el **emoji** de cada sesión y si quieres el globo con el mensaje, los límites de uso y el contexto de
+cada sesión. Tus cambios se guardan en `state/menubar/options.json` (un archivo propio de la app; `config.json` no se
+toca).
+
+**Un emoji para cada sesión.** Cada sesión abierta recibe su propia imagen pequeña (viene activado; el interruptor está en la página de opciones), de
+una familia que tú eliges (naturaleza, bichos, música, acogedor, aventura, animales, frutas, gemas y objetos, colores) y distinta de las
+otras abiertas, para reconocer tus sesiones de un vistazo. Toca el emoji de una fila para elegir otro tú mismo, o vuelve
+a *Automático*. Las imágenes son [Fluent Emoji](https://github.com/microsoft/fluentui-emoji) de Microsoft (MIT).
+
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/menubar-options-dark.png"><img src="docs/img/menubar-options-light.png" width="300" alt="La página de opciones: ícono de la barra de menú, familias de emoji y casillas del panel"></picture> <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/menubar-picker-dark.png"><img src="docs/img/menubar-picker-light.png" width="300" alt="El selector de emoji de una fila, con todas las familias"></picture></p>
+
+En el estilo `mono` nada lleva color (los emoji también se ven en gris).
+
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/menubar-mono-dark.png"><img src="docs/img/menubar-mono-light.png" width="434" alt="El mismo panel en estilo mono: en grises, con los emoji en gris"></picture></p>
 
 ## 6. Sonidos
 
@@ -298,4 +311,4 @@ Los issues y pull requests son bienvenidos, también los pequeños. Pruebas: `py
 
 ## Licencia
 
-[MIT](LICENSE)
+[MIT](LICENSE). Los emoji de cada sesión, en `assets/emoji/`, son [Fluent Emoji](https://github.com/microsoft/fluentui-emoji) de Microsoft (estilo Flat, MIT): mira [assets/emoji/LICENSE](assets/emoji/LICENSE).

@@ -7,7 +7,9 @@
 // the state word, the project and, on the right, `2 agents · ctx 62 % · 3 min`. Hover a box for 180 ms and it opens
 // in place (Go to chat / Remind me / Mark as read / Pin); 600 ms later a bubble with the whole last message appears
 // beside the panel. Click a box's line (or "Go to chat") to jump to its terminal (focus_session.py, run with argv,
-// never a shell); the session is marked as seen.
+// never a shell); the session is marked as seen. A gear in the footer opens the options page (the status item's icon,
+// the emoji of each session, what the panel shows). With the emoji on, each row starts with a small picture, chosen
+// by the app from a family you pick (a different one for each open session) or by you: click the picture in a row.
 //
 // Reads  <CCNOTIFY_HOME>/state/sessions/<id>.json   written by the hooks
 //        <CCNOTIFY_HOME>/state/seen/<id>            epoch written by the popup / this app
@@ -23,6 +25,11 @@
 // typed something). What this app owns lives in <CCNOTIFY_HOME>/state/menubar/ (folders 0700, files 0600):
 //   pins/<safe id>             an empty file per pinned session
 //   reminders/<safe id>.json   {"at": <due epoch>, "since": <the session's `since` when it was set>}
+//   options.json               {"icon", "emoji_theme", "bubble", "usage", "context"}: the options page; keys it does not
+//                              know are kept; unreadable: the defaults ("emoji_theme" is a family or "none")
+//   emoji-auto.json            {"family", "assigned": {"<safe id>": "<name>.png"}}: the emoji given to each session
+//   emoji-chosen.json          {"<safe id>": "<family>/<name>.png"}: the emoji you picked by hand
+// The emoji pictures (Fluent Emoji, MIT; see assets/emoji/LICENSE) are in the app's bundle, Contents/Resources/emoji/<family>/.
 // A reminder that comes due is shown with the usual popup (a JSON in state/queue/ and `open -n -g CCNotify.app`,
 // like hooks/notify.py does); a reminder is dropped when the session changes state or goes away.
 //
@@ -33,12 +40,21 @@
 //   CCNOTIFY_CAPTURE_OPEN=<id>      with the capture: that row open, as when the mouse rests on it.
 //   CCNOTIFY_CAPTURE_BUBBLE=<id>    with the capture: also the bubble of that session.
 //   CCNOTIFY_CAPTURE_REMIND=<id>    with the capture: that row showing its "Remind me in" choices.
+//   CCNOTIFY_CAPTURE_PICKER=<id>    with the capture: that row showing its emoji picker.
+//   CCNOTIFY_CAPTURE_OPTIONS=1      with the capture: the options page instead of the list
+//                                   (CCNOTIFY_CAPTURE_ALL_FAMILIES=1: with every family of emoji in view).
+//   CCNOTIFY_EMOJI_DIR=<folder>     where the emoji families are (default: the app's Contents/Resources/emoji).
 //   CCNOTIFY_THEME=light|dark       forces the appearance; CCNOTIFY_CAPTURE_SCALE sets the pixel density (default 2).
 //   CCNOTIFY_TEST_MINUTES_AS_SECONDS=1   "2 / 5 / 15 min" last 2 / 5 / 15 seconds.
 //   CCNOTIFY_TEST_REMIND=<id>       sets a "2 min" reminder at launch, lets the clock run and quits after 12 s (no icon).
 //   CCNOTIFY_TEST_MOUSE=<id>        opens the panel, MOVES the cursor onto that session's row and away again, noting in
 //                                   stderr what is open at each step (the 180 ms row and 600 ms bubble timings), and quits.
 //   CCNOTIFY_TEST_ORDER=1           prints the session ids in list order and quits.
+//   CCNOTIFY_TEST_EMOJI=1           prints "<id>\t<family>/<name>.png|-\tmanual|auto" per session (in id order) and quits.
+//   CCNOTIFY_TEST_OPTIONS=<json>    saves those keys the way the options page does, prints options.json and quits.
+//   CCNOTIFY_TEST_CHOOSE=<id>=<family>/<name>.png   saves that session's emoji by hand (empty after "=": removes it) and quits.
+//   CCNOTIFY_TEST_NAV=<id>          opens the panel and does what the clicks do (options page, switches, icon, emoji picker of that
+//                                   row), noting each step in stderr, and quits.
 //   CCNOTIFY_TEST_BAR=1             prints "<number>\t<tooltip>" (what the bar shows) and quits.
 //   CCNOTIFY_TEST_USAGE=1           prints one line per row of the "Limits" block and quits; CCNOTIFY_TEST_NOW=<epoch>
 //                                   fixes "now" for it and the zone is the environment's (TZ=America/Panama).
@@ -175,6 +191,34 @@ struct Strings {
     var quit: String { es ? "Salir" : "Quit" }
     var options: String { es ? "Opciones" : "Options" }
     var pinned: String { es ? "Fijada" : "Pinned" }
+
+    // Options page
+    var back: String { es ? "‹ Volver" : "‹ Back" }
+    var sectionMenuBar: String { es ? "Barra de menú" : "Menu bar" }
+    var sectionEmoji: String { "Emoji" }
+    var sectionPanel: String { "Panel" }
+    var emojiForEach: String { es ? "Emoji en cada sesión" : "Emoji for each session" }
+    var emojiNote: String {
+        es ? "Para cambiar el de una sola sesión, haz clic en su emoji."
+           : "To change one session's emoji, click it in the list."
+    }
+    func showMore(_ n: Int) -> String { es ? "Mostrar \(n) más" : "Show \(n) more" }
+    var showLess: String { es ? "Mostrar menos" : "Show less" }
+    var optBubble: String { es ? "Globo con el mensaje completo" : "Bubble with the whole message" }
+    var optUsage: String { es ? "Uso de 5 horas y de la semana" : "5-hour and weekly usage" }
+    var optContext: String { es ? "Contexto de cada sesión" : "Context of each session" }
+    var pickEmoji: String { es ? "Elige un emoji" : "Pick an emoji" }
+    var automatic: String { es ? "Automático" : "Automatic" }
+    var changeEmoji: String { es ? "Cambiar emoji" : "Change emoji" }
+    /// Name of a family of emoji (a folder of assets/emoji); an unknown folder shows its name with a capital.
+    func family(_ key: String) -> String {
+        let names: [String: (en: String, es: String)] = [
+            "nature": ("Nature", "Naturaleza"), "bugs": ("Bugs", "Bichos"), "music": ("Music", "Música"),
+            "cozy": ("Cozy", "Acogedor"), "adventure": ("Adventure", "Aventura"), "animals": ("Animals", "Animales"),
+            "fruits": ("Fruits", "Frutas"), "gems": ("Gems & objects", "Gemas y objetos"), "colors": ("Colors", "Colores")]
+        if let n = names[key] { return es ? n.es : n.en }
+        return key.prefix(1).uppercased() + key.dropFirst()
+    }
 
     func agents(_ n: Int) -> String {
         es ? "\(n) agente\(n > 1 ? "s" : "")" : "\(n) agent\(n > 1 ? "s" : "")"
@@ -586,24 +630,199 @@ func usageRows(_ u: Usage?, now: Double, _ L: Strings) -> [UsageRow] {
     return rows
 }
 
-// MARK: - Options and seams for the options page
+// MARK: - Options (the options page) and the emoji of each session
 
-/// What the panel shows. Everything defaults to on. The options page (a later stage) fills this from the user's
-/// choices; until then `load()` returns the defaults and the panel has no gear.
+/// The icons offered for the status item (value = SF Symbol name, then the name shown as a tooltip). To change the
+/// offer, edit only this list; the ones this macOS does not have are not shown.
+let barIcons: [(symbol: String, en: String, es: String)] = [
+    ("bubble.left.and.bubble.right", "Two bubbles", "Dos globos"),
+    ("terminal.fill", "Terminal", "Terminal"),
+    ("bolt.fill", "Bolt", "Rayo"),
+    ("list.bullet.rectangle", "List", "Lista"),
+    ("chevron.left.forwardslash.chevron.right", "Code", "Código"),
+    ("flame.fill", "Flame", "Fuego"),
+    ("tornado", "Tornado", "Tornado"),
+    ("eyes", "Eyes", "Ojos"),
+    ("rays", "Rays", "Rayos"),
+    ("circle.hexagonpath.fill", "Hexagon", "Hexágono"),
+]
+/// The icon used when nothing is chosen or the chosen one does not exist on this Mac.
+let defaultBarIcon = "bubble.left.and.bubble.right"
+/// Value of "emoji_theme" that turns the emoji off.
+let emojiOff = "none"
+/// The family used when the emoji are turned on from the options page.
+let defaultEmojiFamily = "nature"
+
+let optionsFile = appStateDir + "/options.json"
+let emojiAutoFile = appStateDir + "/emoji-auto.json"
+let emojiChosenFile = appStateDir + "/emoji-chosen.json"
+/// The folders of emoji: <family>/<name>.png. They live in the app's bundle (Contents/Resources/emoji);
+/// CCNOTIFY_EMOJI_DIR points somewhere else for tests.
+let emojiDir: String = {
+    if let d = env["CCNOTIFY_EMOJI_DIR"], !d.isEmpty { return (d as NSString).expandingTildeInPath }
+    return (Bundle.main.resourcePath ?? "") + "/emoji"
+}()
+
+/// A plain file or folder name: letters, digits, dot, dash, underscore; no leading dot.
+func isPlainName(_ s: String) -> Bool {
+    let ok = Set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-")
+    return !s.isEmpty && s.count <= 80 && !s.hasPrefix(".") && s.allSatisfy { ok.contains($0) }
+}
+
+/// An SF Symbol name has this shape (whether it exists on this Mac is another matter: see `barImage`).
+func isSymbolName(_ s: String) -> Bool {
+    let ok = Set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._")
+    return !s.isEmpty && s.count <= 80 && s.allSatisfy { ok.contains($0) }
+}
+
+/// What the panel shows and the status item looks like. Lives in <CCNOTIFY_HOME>/state/menubar/options.json, which only
+/// this app writes (never config.json). Missing or unreadable file: everything at its default.
+///   {"icon": "<SF Symbol>", "emoji_theme": "<family>" | "none", "bubble": true, "usage": true, "context": true}
 struct PanelOptions {
+    var icon = defaultBarIcon
+    var emojiFamily = defaultEmojiFamily      // a folder of the emoji, or `emojiOff`
     var bubble = true          // the bubble with the whole message
     var usage = true           // the "Limits" block
     var context = true         // "ctx NN %" in the rows
 
-    static func load() -> PanelOptions { PanelOptions() }
+    /// The file as a dictionary (empty if missing or not a JSON object).
+    static func raw() -> [String: Any] {
+        guard let data = FileManager.default.contents(atPath: optionsFile),
+              let o = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return [:] }
+        return o
+    }
+
+    static func load() -> PanelOptions {
+        let o = raw()
+        var p = PanelOptions()
+        if let s = o["icon"] as? String, isSymbolName(s) { p.icon = s }
+        if let s = o["emoji_theme"] as? String, s == emojiOff || isPlainName(s) { p.emojiFamily = s }
+        if let b = o["bubble"] as? Bool { p.bubble = b }
+        if let b = o["usage"] as? Bool { p.usage = b }
+        if let b = o["context"] as? Bool { p.context = b }
+        return p
+    }
+
+    /// Changes those keys (only the five known ones, each with its own type) and keeps every other key of the file.
+    @discardableResult
+    static func save(_ changes: [String: Any]) -> Bool {
+        var o = raw()
+        for (k, v) in changes {
+            switch k {
+            case "icon": if let s = v as? String, isSymbolName(s) { o[k] = s }
+            case "emoji_theme": if let s = v as? String, s == emojiOff || isPlainName(s) { o[k] = s }
+            case "bubble", "usage", "context": if let b = v as? Bool { o[k] = b }
+            default: break
+            }
+        }
+        guard let data = try? JSONSerialization.data(withJSONObject: o, options: [.sortedKeys, .prettyPrinted]) else { return false }
+        ensureDir(appStateDir)
+        return writePrivate(data, to: optionsFile)
+    }
 }
 
 /// True once there is an options page to open: shows the gear in the footer and makes it call `openOptions`.
-let hasOptionsPage = false
+let hasOptionsPage = true
 
-/// The small picture of a session (the row's optional image, drawn left of the state word). nil draws nothing and
-/// takes no room. The emoji families of a later stage plug in here.
-func sessionImage(for id: String) -> NSImage? { nil }
+// MARK: The emoji families
+
+/// The families in the order of the options page: the first three are the ones seen without "Show more"; any other
+/// folder found goes after these, alphabetically.
+let emojiFamilyOrder = ["nature", "bugs", "music", "cozy", "adventure", "animals", "fruits", "gems", "colors"]
+
+/// The families that have at least one PNG, with their files (sorted), in the order above.
+func loadEmojiFamilies() -> [(family: String, files: [String])] {
+    let fm = FileManager.default
+    var found: [String: [String]] = [:]
+    for f in (try? fm.contentsOfDirectory(atPath: emojiDir)) ?? [] where isPlainName(f) {
+        var isDir: ObjCBool = false
+        guard fm.fileExists(atPath: emojiDir + "/" + f, isDirectory: &isDir), isDir.boolValue else { continue }
+        let png = ((try? fm.contentsOfDirectory(atPath: emojiDir + "/" + f)) ?? [])
+            .filter { isPlainName($0) && $0.lowercased().hasSuffix(".png") }.sorted()
+        if !png.isEmpty { found[f] = png }
+    }
+    let first = emojiFamilyOrder.filter { found[$0] != nil }
+    let others = found.keys.filter { !emojiFamilyOrder.contains($0) }.sorted()
+    return (first + others).map { ($0, found[$0] ?? []) }
+}
+let emojiFamilies = loadEmojiFamilies()
+
+/// "family/name.png" with a plain name on each side, and the file there: its path.
+func emojiPath(_ key: String) -> String? {
+    let p = key.components(separatedBy: "/")
+    guard p.count == 2, isPlainName(p[0]), isPlainName(p[1]), p[1].lowercased().hasSuffix(".png") else { return nil }
+    let path = emojiDir + "/" + key
+    return FileManager.default.fileExists(atPath: path) ? path : nil
+}
+
+/// A readable name for a file of a family: "red-apple.png" -> "red apple".
+func emojiLabel(_ key: String) -> String {
+    ((key as NSString).lastPathComponent as NSString).deletingPathExtension.replacingOccurrences(of: "-", with: " ")
+}
+
+var emojiImageCache: [String: NSImage] = [:]
+
+/// The picture of an emoji, from the app's folder. In the mono style it is turned to grayscale (like everything else
+/// in the panel).
+func emojiImage(_ key: String) -> NSImage? {
+    let cacheKey = (PanelStyle.mono ? "m:" : "c:") + key
+    if let img = emojiImageCache[cacheKey] { return img }
+    guard let path = emojiPath(key), let color = NSImage(contentsOfFile: path) else { return nil }
+    var result = color
+    if PanelStyle.mono, let tiff = color.tiffRepresentation, let ci = CIImage(data: tiff),
+       let f = CIFilter(name: "CIColorControls") {
+        f.setValue(ci, forKey: kCIInputImageKey)
+        f.setValue(0.0, forKey: kCIInputSaturationKey)
+        if let out = f.outputImage {
+            let rep = NSCIImageRep(ciImage: out)
+            let gray = NSImage(size: color.size)
+            gray.addRepresentation(rep)
+            result = gray
+        }
+    }
+    emojiImageCache[cacheKey] = result
+    return result
+}
+
+/// FNV-1a of a string: the stable starting point of a session in a family.
+func fnv1a(_ s: String) -> UInt32 {
+    var h: UInt32 = 2166136261
+    for b in s.utf8 { h = (h ^ UInt32(b)) &* 16777619 }
+    return h
+}
+
+/// What each session shows, computed once per refresh (see `MenuBar.assignEmoji`): session id -> "family/name.png".
+enum Emoji {
+    static var keys: [String: String] = [:]
+    static var manual: Set<String> = []     // the sessions whose emoji you chose by hand
+}
+
+/// The small picture of a session (the row's image, drawn left of the state word). nil draws nothing and takes no room.
+func sessionImage(for id: String) -> NSImage? {
+    guard let key = Emoji.keys[id] else { return nil }
+    return emojiImage(key)
+}
+
+/// The image of a status item icon, or nil if this macOS does not have that symbol.
+func barImage(_ symbol: String, label: String) -> NSImage? {
+    guard isSymbolName(symbol), let img = NSImage(systemSymbolName: symbol, accessibilityDescription: label) else { return nil }
+    img.isTemplate = true
+    return img
+}
+
+/// The icons offered on the options page: those of `barIcons` that exist here and, if the one in use is not among
+/// them (written by hand in options.json), that one at the end: what is in use is always seen.
+func offeredBarIcons(current: String, _ L: Strings) -> [(symbol: String, name: String)] {
+    var list: [(symbol: String, name: String)] = barIcons.filter { barImage($0.symbol, label: "") != nil }
+        .map { (symbol: $0.symbol, name: L.es ? $0.es : $0.en) }
+    if barImage(current, label: "") != nil && !list.contains(where: { $0.symbol == current }) { list.append((current, current)) }
+    return list
+}
+
+/// The icon that is really used for a requested value: that one, or the default if it does not exist here.
+func resolvedBarIcon(_ requested: String) -> String {
+    barImage(requested, label: "") != nil ? requested : defaultBarIcon
+}
 
 // MARK: - Panel pieces (everything is drawn by hand: dynamic colors resolve themselves on every redraw)
 
@@ -953,6 +1172,362 @@ final class PinView: NSImageView {
     }
     required init?(coder: NSCoder) { fatalError() }
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+
+/// A picture you can press (a row's emoji, or each one of the picker): a faint rounded background with the mouse over
+/// it and, the one in use, a thin ring. The "mouse over" is set by the panel's mouse clock (see highlightCells), not by
+/// a tracking area: that way it survives the rebuilds of the panel.
+final class EmojiCell: NSView {
+    static let margin: CGFloat = 2
+    let image: NSImage
+    let side: CGFloat
+    let ring: Bool
+    let descriptionText: String
+    let onClick: () -> Void
+    var hovered = false { didSet { if hovered != oldValue { needsDisplay = true } } }
+    var pressed = false
+
+    init(_ image: NSImage, side: CGFloat, ring: Bool, description: String, tip: String?, action: @escaping () -> Void) {
+        self.image = image
+        self.side = side
+        self.ring = ring
+        descriptionText = description
+        onClick = action
+        let t = side + 2 * EmojiCell.margin
+        super.init(frame: NSRect(x: 0, y: 0, width: t, height: t))
+        toolTip = tip
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override var isFlipped: Bool { true }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override func mouseDown(with event: NSEvent) { pressed = true }
+    override func mouseUp(with event: NSEvent) {
+        let inside = bounds.contains(convert(event.locationInWindow, from: nil))
+        pressed = false
+        if inside { DispatchQueue.main.async { self.onClick() } }   // later: the click rebuilds the panel
+    }
+    override func isAccessibilityElement() -> Bool { true }
+    override func accessibilityRole() -> NSAccessibility.Role? { .button }
+    override func accessibilityLabel() -> String? { descriptionText }
+    override func accessibilityPerformPress() -> Bool { onClick(); return true }
+
+    override func draw(_ dirtyRect: NSRect) {
+        if hovered {
+            labelAlpha(0.08).setFill()
+            NSBezierPath(roundedRect: bounds, xRadius: 6, yRadius: 6).fill()
+        }
+        if ring {
+            let shape = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 5.5, yRadius: 5.5)
+            shape.lineWidth = 1
+            labelAlpha(0.55).setStroke()
+            shape.stroke()
+        }
+        NSGraphicsContext.current?.imageInterpolation = .high
+        image.draw(in: bounds.insetBy(dx: EmojiCell.margin, dy: EmojiCell.margin), from: .zero, operation: .sourceOver,
+                   fraction: 1, respectFlipped: true, hints: nil)
+    }
+}
+
+/// A row of the options page for one family of emoji: its name (a fixed column) and, right after it, a strip with the
+/// family's pictures (20 pt, 5 pt apart, as many as fit). The chosen one has a border in the label color, a faint
+/// fill and a semibold name. The pictures are drawn inside the row: all of it is one click area.
+final class FamilyRow: NSView {
+    static let height: CGFloat = 36
+    static let nameColumn: CGFloat = 112
+    static let stripX: CGFloat = 12 + nameColumn
+    /// How many 20 pt pictures, 5 pt apart, fit in the strip, leaving 10 pt on the right.
+    static func fit(width: CGFloat) -> Int { max(0, Int((width - 10 - stripX + 5) / 25)) }
+    static let restFont = NSFont.monospacedDigitSystemFont(ofSize: 11.5, weight: .regular)
+    let name: String
+    let chosen: Bool
+    let pictures: [NSImage]      // the ones that are seen
+    let rest: Int                // how many do not fit: announced with "+N" at the end of the strip
+    let onClick: () -> Void
+    var pressed = false { didSet { needsDisplay = true } }
+
+    /// `pictures` are all of the family, in file order. If they do not all fit, the strip ends with "+N" (6 pt after the
+    /// last picture) and as many are shown as fit leaving room for it: they never overlap.
+    init(name: String, pictures: [NSImage], chosen: Bool, width: CGFloat, action: @escaping () -> Void) {
+        self.name = name
+        let most = FamilyRow.fit(width: width)
+        var shown = min(pictures.count, most)
+        if pictures.count > most {
+            let free = width - 10 - FamilyRow.stripX
+            shown = most
+            while shown > 0 {
+                let w = ceil(NSAttributedString(string: "+\(pictures.count - shown)",
+                                                attributes: [.font: FamilyRow.restFont]).size().width)
+                if CGFloat(shown) * 25 - 5 + 6 + w <= free { break }
+                shown -= 1
+            }
+        }
+        self.pictures = Array(pictures.prefix(shown))
+        rest = pictures.count - shown
+        self.chosen = chosen
+        onClick = action
+        super.init(frame: NSRect(x: 0, y: 0, width: width, height: FamilyRow.height))
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override var isFlipped: Bool { true }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override func mouseDown(with event: NSEvent) { pressed = true }
+    override func mouseUp(with event: NSEvent) {
+        let inside = bounds.contains(convert(event.locationInWindow, from: nil))
+        pressed = false
+        if inside { DispatchQueue.main.async { self.onClick() } }
+    }
+    override func isAccessibilityElement() -> Bool { true }
+    override func accessibilityRole() -> NSAccessibility.Role? { .radioButton }
+    override func accessibilityLabel() -> String? { name }
+    override func accessibilityValue() -> Any? { chosen ? 1 : 0 }
+    override func accessibilityPerformPress() -> Bool { onClick(); return true }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let shape = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 8.5, yRadius: 8.5)
+        if chosen {
+            labelAlpha(0.06).setFill()
+            shape.fill()
+        } else if pressed {
+            labelAlpha(0.05).setFill()
+            shape.fill()
+        }
+        shape.lineWidth = 1
+        (chosen ? labelAlpha(0.55) : NSColor.separatorColor).setStroke()
+        shape.stroke()
+        let t = attr(name, 13, chosen ? .semibold : .regular, .labelColor)
+        let m = t.size()
+        t.draw(with: NSRect(x: 12, y: ((bounds.height - m.height) / 2).rounded(), width: FamilyRow.nameColumn - 4, height: m.height),
+               options: [.truncatesLastVisibleLine, .usesLineFragmentOrigin])
+        NSGraphicsContext.current?.imageInterpolation = .high
+        for (k, img) in pictures.enumerated() {
+            img.draw(in: NSRect(x: FamilyRow.stripX + CGFloat(k) * 25, y: ((bounds.height - 20) / 2).rounded(), width: 20, height: 20),
+                     from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
+        }
+        if rest > 0 {
+            let n = NSAttributedString(string: "+\(rest)", attributes: [.font: FamilyRow.restFont,
+                                                                        .foregroundColor: NSColor.secondaryLabelColor])
+            n.draw(at: NSPoint(x: FamilyRow.stripX + CGFloat(pictures.count) * 25 - 5 + 6,
+                               y: ((bounds.height - n.size().height) / 2).rounded()))
+        }
+    }
+}
+
+/// A square button (28 x 28) for the choice of the status item's icon: the symbol (16 pt, label color). The chosen one
+/// looks like the chosen family. The tooltip is its name.
+final class BarIconButton: NSView {
+    let name: String
+    let chosen: Bool
+    let image: NSImage
+    let side: CGFloat
+    let onClick: () -> Void
+    var pressed = false { didSet { needsDisplay = true } }
+
+    init(name: String, symbol: NSImage, chosen: Bool, side: CGFloat = 28, action: @escaping () -> Void) {
+        self.side = side
+        self.name = name
+        self.chosen = chosen
+        let cfg = NSImage.SymbolConfiguration(pointSize: 16, weight: .regular)
+        image = symbol.withSymbolConfiguration(cfg) ?? symbol
+        onClick = action
+        super.init(frame: NSRect(x: 0, y: 0, width: side, height: side))
+        toolTip = name
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override var isFlipped: Bool { true }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override func mouseDown(with event: NSEvent) { pressed = true }
+    override func mouseUp(with event: NSEvent) {
+        let inside = bounds.contains(convert(event.locationInWindow, from: nil))
+        pressed = false
+        if inside { DispatchQueue.main.async { self.onClick() } }
+    }
+    override func isAccessibilityElement() -> Bool { true }
+    override func accessibilityRole() -> NSAccessibility.Role? { .radioButton }
+    override func accessibilityLabel() -> String? { name }
+    override func accessibilityValue() -> Any? { chosen ? 1 : 0 }
+    override func accessibilityPerformPress() -> Bool { onClick(); return true }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let shape = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 8.5, yRadius: 8.5)
+        if chosen {
+            labelAlpha(0.06).setFill()
+            shape.fill()
+        } else if pressed {
+            labelAlpha(0.05).setFill()
+            shape.fill()
+        }
+        shape.lineWidth = 1
+        (chosen ? labelAlpha(0.55) : NSColor.separatorColor).setStroke()
+        shape.stroke()
+        NSGraphicsContext.current?.imageInterpolation = .high
+        let img = image
+        let tinted = NSImage(size: img.size, flipped: false) { r in
+            img.draw(in: r)
+            NSColor.labelColor.set()
+            r.fill(using: .sourceAtop)      // the symbol is a template: painted with today's dynamic color
+            return true
+        }
+        let o = NSPoint(x: ((bounds.width - img.size.width) / 2).rounded(), y: ((bounds.height - img.size.height) / 2).rounded())
+        tinted.draw(in: NSRect(origin: o, size: img.size), from: .zero, operation: .sourceOver, fraction: 1,
+                    respectFlipped: true, hints: nil)
+    }
+}
+
+/// A row of the options page with a checkbox (or a switch on the right): pressing anywhere on the row toggles it. The
+/// checkbox is drawn by hand (a 14 pt rounded square; on, filled with the label color and a tick).
+final class OptionRow: NSView {
+    let text: String
+    let on: Bool
+    let inset: CGFloat           // margin left and right (inside a grouped box)
+    let asSwitch: Bool
+    let onClick: () -> Void
+    var pressed = false { didSet { needsDisplay = true } }
+
+    init(_ text: String, on: Bool, width: CGFloat, height: CGFloat = 30, inset: CGFloat = 0, asSwitch: Bool = false,
+         action: @escaping () -> Void) {
+        self.text = text
+        self.on = on
+        self.inset = inset
+        self.asSwitch = asSwitch
+        onClick = action
+        super.init(frame: NSRect(x: 0, y: 0, width: width, height: height))
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override var isFlipped: Bool { true }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override func mouseDown(with event: NSEvent) { pressed = true }
+    override func mouseUp(with event: NSEvent) {
+        let inside = bounds.contains(convert(event.locationInWindow, from: nil))
+        pressed = false
+        if inside { DispatchQueue.main.async { self.onClick() } }
+    }
+    override func isAccessibilityElement() -> Bool { true }
+    override func accessibilityRole() -> NSAccessibility.Role? { .checkBox }
+    override func accessibilityLabel() -> String? { text }
+    override func accessibilityValue() -> Any? { on ? 1 : 0 }
+    override func accessibilityPerformPress() -> Bool { onClick(); return true }
+
+    override func draw(_ dirtyRect: NSRect) {
+        if pressed {
+            labelAlpha(0.05).setFill()
+            NSBezierPath(roundedRect: bounds, xRadius: inset > 0 ? 0 : 6, yRadius: inset > 0 ? 0 : 6).fill()
+        }
+        let tick = NSColor.dynamic(light: .white, dark: NSColor(hex: 0x1E1E1E))
+        if asSwitch {
+            let t = attr(text, 13, .regular, .labelColor)
+            t.draw(at: NSPoint(x: inset, y: ((bounds.height - t.size().height) / 2).rounded()))
+            let track = NSRect(x: bounds.width - inset - 30, y: ((bounds.height - 18) / 2).rounded(), width: 30, height: 18)
+            (on ? labelAlpha(0.85) : labelAlpha(0.18)).setFill()
+            NSBezierPath(roundedRect: track, xRadius: 9, yRadius: 9).fill()
+            let d: CGFloat = 14
+            let knob = NSRect(x: on ? track.maxX - 2 - d : track.minX + 2, y: track.minY + 2, width: d, height: d)
+            (on ? tick : NSColor.dynamic(light: .white, dark: NSColor(hex: 0xE6E6E6))).setFill()
+            NSBezierPath(ovalIn: knob).fill()
+            return
+        }
+        let box = NSRect(x: inset, y: ((bounds.height - 14) / 2).rounded(), width: 14, height: 14)
+        let shape = NSBezierPath(roundedRect: box.insetBy(dx: 0.5, dy: 0.5), xRadius: 3.5, yRadius: 3.5)
+        if on {
+            labelAlpha(0.85).setFill()
+            shape.fill()
+            // The tick: white in light; in dark, the background color (white on white would not be seen)
+            tick.setStroke()
+            let v = NSBezierPath()
+            v.move(to: NSPoint(x: box.minX + 3.5, y: box.minY + 7.3))
+            v.line(to: NSPoint(x: box.minX + 6, y: box.minY + 9.8))
+            v.line(to: NSPoint(x: box.minX + 10.6, y: box.minY + 4.4))
+            v.lineWidth = 1.7
+            v.lineCapStyle = .round
+            v.lineJoinStyle = .round
+            v.stroke()
+        } else {
+            shape.lineWidth = 1
+            labelAlpha(0.4).setStroke()
+            shape.stroke()
+        }
+        let t = attr(text, 13, .regular, .labelColor)
+        let m = t.size()
+        t.draw(at: NSPoint(x: inset + 14 + 10, y: ((bounds.height - m.height) / 2).rounded()))
+    }
+}
+
+/// A grouped box of the options page (like System Settings): a faint tinted fill and a thin border all around. It takes
+/// no clicks: what is inside belongs to the page.
+final class GroupBox: NSView {
+    override var isFlipped: Bool { true }
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    override func draw(_ dirtyRect: NSRect) {
+        let shape = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 10, yRadius: 10)
+        labelAlpha(0.04).setFill()
+        shape.fill()
+        shape.lineWidth = 1
+        labelAlpha(0.10).setStroke()
+        shape.stroke()
+    }
+}
+
+/// The last row of the families: the same height and shape as a family row, with "Show N more" (or "Show less") in the
+/// accent color and a chevron on the right. Hand cursor and a faint fill with the mouse over it.
+final class MoreRow: NSView {
+    let text: String
+    let expanded: Bool
+    let onClick: () -> Void
+    var pressed = false { didSet { needsDisplay = true } }
+    var hovered = false { didSet { needsDisplay = true } }
+
+    init(_ text: String, expanded: Bool, width: CGFloat, action: @escaping () -> Void) {
+        self.text = text
+        self.expanded = expanded
+        onClick = action
+        super.init(frame: NSRect(x: 0, y: 0, width: width, height: FamilyRow.height))
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+                                       owner: self, userInfo: nil))
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override var isFlipped: Bool { true }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
+    override func mouseEntered(with event: NSEvent) { hovered = true }
+    override func mouseExited(with event: NSEvent) { hovered = false }
+    override func mouseDown(with event: NSEvent) { pressed = true }
+    override func mouseUp(with event: NSEvent) {
+        let inside = bounds.contains(convert(event.locationInWindow, from: nil))
+        pressed = false
+        if inside { DispatchQueue.main.async { self.onClick() } }
+    }
+    override func isAccessibilityElement() -> Bool { true }
+    override func accessibilityRole() -> NSAccessibility.Role? { .button }
+    override func accessibilityLabel() -> String? { text }
+    override func accessibilityPerformPress() -> Bool { onClick(); return true }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let shape = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 8.5, yRadius: 8.5)
+        if pressed { labelAlpha(0.07).setFill(); shape.fill() }
+        else if hovered { labelAlpha(0.04).setFill(); shape.fill() }
+        shape.lineWidth = 1
+        NSColor.separatorColor.setStroke()
+        shape.stroke()
+        let color = Tone.needs.ink.text
+        let t = attr(text, 13, .medium, color)
+        t.draw(at: NSPoint(x: 12, y: ((bounds.height - t.size().height) / 2).rounded()))
+        // The chevron: down (more) or up (less), a 1.7 pt stroke of 10 x 5.5 pt
+        let cx = bounds.width - 12 - 5, cy = bounds.height / 2
+        let v = NSBezierPath()
+        let h: CGFloat = expanded ? -1 : 1
+        v.move(to: NSPoint(x: cx - 5, y: cy - 2.75 * h))
+        v.line(to: NSPoint(x: cx, y: cy + 2.75 * h))
+        v.line(to: NSPoint(x: cx + 5, y: cy - 2.75 * h))
+        v.lineWidth = 1.7
+        v.lineCapStyle = .round
+        v.lineJoinStyle = .round
+        color.setStroke()
+        v.stroke()
+    }
 }
 
 /// Faint background of code blocks (and table rows) in the bubble.
@@ -1386,6 +1961,16 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     var reminded: [String: Double] = [:]       // session id -> when it will remind me (active reminders only)
     var remindingId: String?                   // the row that has "Remind me in" open
     var pinned: Set<String> = []               // safeName of the pinned sessions
+    enum Page { case list, options }
+    var page = Page.list                       // what the panel shows: the sessions or the options page
+    var pagePainted: Page?                     // the page of the last build (the scroll does not pass from one to the other)
+    var listScroll: CGFloat?                   // where the list was scrolled to when the options page opened
+    var showAllFamilies = false                // options page: every family of emoji, not just the first three
+    var pickingId: String?                     // the row that has the emoji picker open
+    var revealId: String?                      // after the next build, scroll to this row
+    var cells: [EmojiCell] = []                // the pressable pictures that are seen now
+    var pendingCells: [EmojiCell] = []
+    var shownIcon: String?                     // the symbol the status item shows now
     // What is seen and the mouse. All the state lives here, by session id, never in the views: the panel is rebuilt
     // every time something changes and the views do not survive.
     var openRow: String?                       // the row opened by the mouse ("Remind me in" wins over it)
@@ -1427,6 +2012,34 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             fflush(stdout)
             exit(0)
         }
+        if env["CCNOTIFY_TEST_EMOJI"] == "1" {
+            opts = PanelOptions.load()
+            sessions = readSessions()
+            assignEmoji()
+            for s in sessions.sorted(by: { $0.id < $1.id }) {
+                print("\(s.id)\t\(Emoji.keys[s.id] ?? "-")\t\(Emoji.manual.contains(s.id) ? "manual" : "auto")")
+            }
+            fflush(stdout)
+            exit(0)
+        }
+        if let json = env["CCNOTIFY_TEST_OPTIONS"], !json.isEmpty {
+            // Saves those keys through the same path as the options page, prints the file and quits
+            guard let o = (try? JSONSerialization.jsonObject(with: Data(json.utf8))) as? [String: Any] else {
+                fputs("CCNOTIFY_TEST_OPTIONS is not a JSON object\n", stderr)
+                exit(2)
+            }
+            let ok = PanelOptions.save(o)
+            if let data = FileManager.default.contents(atPath: optionsFile) { print(String(decoding: data, as: UTF8.self)) }
+            fflush(stdout)
+            exit(ok ? 0 : 2)
+        }
+        if let spec = env["CCNOTIFY_TEST_CHOOSE"], let eq = spec.firstIndex(of: "=") {
+            // "<session>=<family>/<name>.png" saves the emoji you chose by hand for that session; with the right side empty, removes it
+            opts = PanelOptions.load()
+            sessions = readSessions()
+            let value = String(spec[spec.index(after: eq)...])
+            exit(chooseEmoji(String(spec[..<eq]), value.isEmpty ? nil : value) ? 0 : 2)
+        }
         if let id = env["CCNOTIFY_TEST_REMIND"], !id.isEmpty {
             // Reminders without icon or panel: sets one of "2 min" the way the button does, lets the usual clock run, quits at 12 s
             sessions = readSessions()
@@ -1441,6 +2054,9 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             captureFixed = true
             if let id = env["CCNOTIFY_CAPTURE_OPEN"], !id.isEmpty { openRow = id }
             if let id = env["CCNOTIFY_CAPTURE_REMIND"], !id.isEmpty { remindingId = id; openRow = id }
+            if let id = env["CCNOTIFY_CAPTURE_PICKER"], !id.isEmpty { pickingId = id; openRow = id }
+            if env["CCNOTIFY_CAPTURE_OPTIONS"] == "1" { page = .options }
+            if env["CCNOTIFY_CAPTURE_ALL_FAMILIES"] == "1" { showAllFamilies = true }
             if let theme = env["CCNOTIFY_THEME"], theme == "dark" || theme == "light" {
                 let ap = NSAppearance(named: theme == "dark" ? .darkAqua : .aqua)
                 NSApp.appearance = ap
@@ -1455,7 +2071,8 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         button.button?.imagePosition = .imageLeft
         // Transient: a click anywhere else closes it. Not in the test hooks, where a stray click or a change of the
         // active app (somebody using the Mac while a capture runs) would close the panel before the grab.
-        popover.behavior = capturing || env["CCNOTIFY_TEST_MOUSE"] != nil ? .applicationDefined : .transient
+        popover.behavior = capturing || env["CCNOTIFY_TEST_MOUSE"] != nil || env["CCNOTIFY_TEST_NAV"] != nil
+            ? .applicationDefined : .transient
         let vc = NSViewController()
         vc.view = container
         popover.contentViewController = vc
@@ -1467,6 +2084,11 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.item?.button?.performClick(nil) }
         }
         if let out = env["CCNOTIFY_CAPTURE_MENU"] { captureMenu(to: out) }   // tests only
+        if let id = env["CCNOTIFY_TEST_NAV"], !id.isEmpty {                  // tests only
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.item?.button?.performClick(nil) }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { self.navTest(id) }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 15) { exit(3) }
+        }
         if let id = env["CCNOTIFY_TEST_MOUSE"], !id.isEmpty {                // tests only
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.item?.button?.performClick(nil) }
             DispatchQueue.main.asyncAfter(deadline: .now() + 2) { self.mouseTest(id) }
@@ -1483,6 +2105,7 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         watchTranscripts()
         processReminders()
         pinned = readPins(clean: true)
+        assignEmoji()
         paintItem()
         if popover.isShown { rebuildPanel(force: false) }
     }
@@ -1778,11 +2401,11 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     func paintItem() {
         guard let button = item?.button else { return }
         let b = barState()
-        if button.image == nil {
-            let img = NSImage(systemSymbolName: "bubble.left.and.bubble.right", accessibilityDescription: L.title)
-            img?.isTemplate = true
-            button.image = img
+        let symbol = resolvedBarIcon(opts.icon)
+        if button.image == nil || shownIcon != symbol {
+            button.image = barImage(symbol, label: L.title)
             button.imagePosition = .imageLeft
+            shownIcon = symbol
         }
         if b.number > 0 {
             button.attributedTitle = NSAttributedString(string: "\(b.number)", attributes: [
@@ -1833,7 +2456,12 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         container.subviews.forEach { $0.removeFromSuperview() }   // when it opens again, the scroll starts at the top
         rows = []
         remindingId = nil      // the next time you open the panel, the rows go back to their own state
+        pickingId = nil
         openRow = nil
+        cells = []
+        page = .list           // and it opens on the list, not on the options
+        pagePainted = nil
+        listScroll = nil
         stopMouse()
     }
 
@@ -1845,8 +2473,18 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         if !force && signature == lastSignature { return }
         lastSignature = signature
         rows = pendingRows
-        // If it already scrolled, remember where, so each refresh does not go back to the top
-        let previous = (container.subviews.first as? NSScrollView)?.contentView.bounds.origin.y
+        cells = pendingCells
+        // If it already scrolled, remember where, so each refresh does not go back to the top. The scroll of a page does
+        // not pass to the other: coming back from the options, the list is where it was; opening the emoji picker
+        // brings its row into view.
+        var previous = pagePainted == page ? (container.subviews.first as? NSScrollView)?.contentView.bounds.origin.y : nil
+        if previous == nil && page == .list, let saved = listScroll { previous = saved }
+        pagePainted = page
+        if page == .list { listScroll = nil }
+        if let id = revealId {
+            revealId = nil
+            if let r = rows.first(where: { $0.id == id })?.view { previous = max(0, r.frame.minY - 8) }
+        }
         var content: NSView = view
         let screen = item?.button?.window?.screen ?? NSScreen.main
         let cap = ((screen?.visibleFrame.height) ?? 800) - 40
@@ -1882,8 +2520,8 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         adjustBubble()
     }
 
-    /// The open row: the one with "Remind me in" if there is one; otherwise the one the mouse opened.
-    func isOpen(_ id: String) -> Bool { (remindingId ?? openRow) == id }
+    /// The open row: the one with the emoji picker or "Remind me in" if there is one; otherwise the one the mouse opened.
+    func isOpen(_ id: String) -> Bool { (pickingId ?? remindingId ?? openRow) == id }
 
     func text(_ s: String, _ size: CGFloat, _ weight: NSFont.Weight = .regular, _ color: NSColor,
               width: CGFloat, lines: Int = 1) -> TextBlock {
@@ -1903,11 +2541,15 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     /// Builds the whole panel. Also returns a "signature" of everything it shows, to know if it changed.
     func buildPanel(opaque: Bool) -> (NSView, String) {
+        if page == .options { return buildOptions(opaque: opaque) }
         let WIDTH: CGFloat = 380, PAD: CGFloat = 14, GAP: CGFloat = 10
         let inner = WIDTH - 2 * PAD
         let panel = PanelView(solid: opaque)
         signatureInProgress = "L\(L.code)\(PanelStyle.mono ? "m" : "")\(opts.context ? "c" : "")\(opts.usage ? "u" : "")"
         pendingRows = []
+        pendingCells = []
+        // The emoji picker only exists while its session is open and has a picture
+        if let e = pickingId, sessionImage(for: e) == nil || !sessions.contains(where: { $0.id == e }) { pickingId = nil }
         var y = PAD
 
         let list = ordered()
@@ -2021,8 +2663,365 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         return (panel, signatureInProgress)
     }
 
-    /// Seam for the options page (a later stage): called by the gear. Nothing to open yet.
-    func openOptions() {}
+    // MARK: Emoji of each session
+
+    /// What you chose by hand (emoji-chosen.json): {"<safe session id>": "<family>/<name>.png"}. Anything unreadable is
+    /// empty.
+    func readChosenRaw() -> [String: String] {
+        guard let data = FileManager.default.contents(atPath: emojiChosenFile),
+              let o = (try? JSONSerialization.jsonObject(with: data)) as? [String: String] else { return [:] }
+        return o
+    }
+
+    func writeChosen(_ map: [String: String]) {
+        if map.isEmpty {
+            try? FileManager.default.removeItem(atPath: emojiChosenFile)
+        } else if let data = try? JSONSerialization.data(withJSONObject: map, options: [.sortedKeys, .prettyPrinted, .withoutEscapingSlashes]) {
+            ensureDir(appStateDir)
+            writePrivate(data, to: emojiChosenFile)
+        }
+    }
+
+    /// The choices by hand, clean: the one whose picture no longer exists is dropped (only if the app has pictures at
+    /// all) and so is the one of a session that is gone, but only when its session file is really not there (the same
+    /// rule as the pins: other programs rewrite those files and a stray read would not see it).
+    func readChosen() -> [String: String] {
+        let original = readChosenRaw()
+        var map = original
+        let fm = FileManager.default
+        let open = Set(sessions.map { safeName($0.id) })
+        for (safe, key) in original {
+            let brokenPicture = !emojiFamilies.isEmpty && emojiPath(key) == nil
+            let gone = !open.contains(safe) && !fm.fileExists(atPath: sessionsDir + "/" + safe + ".json")
+            if brokenPicture || gone { map[safe] = nil }
+        }
+        if map != original { writeChosen(map) }
+        return map
+    }
+
+    /// Saves (or, with `key` nil, removes) the emoji you chose for a session. False if it could not be saved.
+    @discardableResult
+    func chooseEmoji(_ id: String, _ key: String?) -> Bool {
+        guard sessions.contains(where: { $0.id == id }) else { return false }
+        var map = readChosen()
+        if let k = key {
+            guard emojiPath(k) != nil else { return false }
+            map[safeName(id)] = k
+        } else {
+            map[safeName(id)] = nil
+        }
+        writeChosen(map)
+        return true
+    }
+
+    /// Which emoji each open session shows, into `Emoji.keys` (session id -> "family/name.png") and `Emoji.manual`.
+    /// What you chose by hand rules (from any family). Otherwise a session keeps the one it was given: it is stored in
+    /// emoji-auto.json {"family": "<family>", "assigned": {"<safe session id>": "<name>.png"}}. A new session gets the
+    /// file its id hashes to (FNV-1a) in the chosen family and, if another open session has it (by hand or not), the
+    /// next free one; with none free, it repeats. Changing the family gives every open session a new one. With the emoji
+    /// off (or a family with no pictures) nobody has one. Run once per refresh: the rest only reads `Emoji`.
+    func assignEmoji() {
+        Emoji.keys = [:]
+        Emoji.manual = []
+        let family = opts.emojiFamily
+        guard family != emojiOff, let files = emojiFamilies.first(where: { $0.family == family })?.files else { return }
+        let fm = FileManager.default
+        let ids = sessions.map { (id: $0.id, safe: safeName($0.id)) }
+        let open = Set(ids.map { $0.safe })
+        let chosen = readChosen().filter { open.contains($0.key) }
+        var storedFamily = "", assigned: [String: String] = [:]
+        if let data = fm.contents(atPath: emojiAutoFile),
+           let o = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
+            storedFamily = (o["family"] as? String) ?? ""
+            assigned = (o["assigned"] as? [String: String]) ?? [:]
+        }
+        let (originalFamily, originalAssigned) = (storedFamily, assigned)
+        if storedFamily != family { assigned = [:] }            // another family: every session is given a new one
+        for (safe, file) in assigned {
+            if open.contains(safe) {
+                if !files.contains(file) { assigned[safe] = nil }          // that picture is gone: another one
+            } else if !fm.fileExists(atPath: sessionsDir + "/" + safe + ".json") {
+                assigned[safe] = nil                                        // its session ended
+            }
+        }
+        // What another session has by hand is not given to anybody; and a session with one by hand keeps no given one
+        let byHand = Set(chosen.values)
+        for safe in open {
+            if chosen[safe] != nil { assigned[safe] = nil; continue }
+            if let a = assigned[safe], byHand.contains(family + "/" + a) { assigned[safe] = nil }
+        }
+        var taken = byHand.union(open.compactMap { assigned[$0] }.map { family + "/" + $0 })
+        for safe in open.sorted() where assigned[safe] == nil && chosen[safe] == nil {
+            let start = Int(fnv1a(safe) % UInt32(files.count))
+            var pick = files[start]
+            for i in 0..<files.count {
+                let f = files[(start + i) % files.count]
+                if !taken.contains(family + "/" + f) { pick = f; break }
+            }
+            assigned[safe] = pick
+            taken.insert(family + "/" + pick)
+        }
+        if family != originalFamily || assigned != originalAssigned,
+           let data = try? JSONSerialization.data(withJSONObject: ["family": family, "assigned": assigned] as [String: Any],
+                                                  options: [.sortedKeys, .prettyPrinted]) {
+            ensureDir(appStateDir)
+            writePrivate(data, to: emojiAutoFile)
+        }
+        for (id, safe) in ids {
+            if let c = chosen[safe] { Emoji.keys[id] = c; Emoji.manual.insert(id) }
+            else if let a = assigned[safe] { Emoji.keys[id] = family + "/" + a }
+        }
+    }
+
+    // MARK: Emoji picker of a session
+
+    /// The picker, inside the row and in place of its buttons: "Pick an emoji · [Automatic] Cancel" and, for each family,
+    /// its name and its pictures (22 pt, 6 pt apart, in lines); the one the session has gets a ring. "Automatic" shows
+    /// only if the session has one chosen by hand. Returns how far it reaches (without the bottom margin).
+    func buildPicker(_ box: RowBox, id: String, width: CGFloat, pad: CGFloat, y0: CGFloat, ink: Ink) -> CGFloat {
+        var y = y0
+        let head = text(L.pickEmoji, 12, .regular, .secondaryLabelColor, width: 200)
+        head.frame.origin = NSPoint(x: pad, y: y + ((24 - head.textSize.height) / 2).rounded())
+        box.addSubview(head)
+        let cancel = button(L.cancel, .text, ink) { [unowned self] in self.closePicker() }
+        cancel.frame.origin = NSPoint(x: width - pad + 3 - cancel.frame.width, y: y)
+        box.addSubview(cancel)
+        if Emoji.manual.contains(id) {
+            let auto = button(L.automatic, .text, ink) { [unowned self] in self.pickEmoji(id, nil) }
+            auto.frame.origin = NSPoint(x: cancel.frame.minX - 6 - auto.frame.width, y: y)
+            box.addSubview(auto)
+        }
+        y += 24 + 4
+        let current = Emoji.keys[id]
+        let step: CGFloat = 28                                         // 22 of picture + 6 apart
+        let columns = max(1, Int((width - 2 * pad + 6) / step))        // 12 in the 332 pt inside
+        for (family, files) in emojiFamilies {
+            let heading = text(L.family(family), 10.5, .semibold, .secondaryLabelColor, width: width - 2 * pad)
+            heading.frame.origin = NSPoint(x: pad, y: y)
+            box.addSubview(heading)
+            y += heading.textSize.height + 4
+            var n = 0
+            for f in files {
+                let key = family + "/" + f
+                guard let img = emojiImage(key) else { continue }
+                let cell = EmojiCell(img, side: 22, ring: key == current,
+                                     description: L.family(family) + ", " + emojiLabel(key), tip: nil) { [unowned self] in
+                    self.pickEmoji(id, key)
+                }
+                cell.frame.origin = NSPoint(x: pad - EmojiCell.margin + CGFloat(n % columns) * step,
+                                            y: y - EmojiCell.margin + CGFloat(n / columns) * step)
+                box.addSubview(cell)
+                pendingCells.append(cell)
+                n += 1
+            }
+            y += CGFloat((n + columns - 1) / columns) * step - 6 + 10
+        }
+        return y - 10
+    }
+
+    /// Click on a row's emoji: the row stays open with the picker (and the bubble goes away).
+    func openPicker(_ id: String) {
+        hideBubble(byClick: true)
+        remindingId = nil
+        pickingId = id
+        openRow = id
+        revealId = id
+        rebuildPanel(force: true)
+    }
+
+    func closePicker() {
+        pickingId = nil
+        rebuildPanel(force: true)
+    }
+
+    /// One emoji of the picker (or, with nil, "Automatic"): it is saved and the row goes back to its buttons.
+    func pickEmoji(_ id: String, _ key: String?) {
+        chooseEmoji(id, key)
+        pickingId = nil
+        assignEmoji()          // the ones given by themselves step aside from the one just chosen
+        rebuildPanel(force: true)
+    }
+
+    // MARK: Options page
+
+    /// Opens the options page in place of the list (the list's scroll is kept for the way back).
+    func openOptions() {
+        listScroll = (container.subviews.first as? NSScrollView)?.contentView.bounds.origin.y
+        page = .options
+        pickingId = nil
+        remindingId = nil
+        openRow = nil
+        hoverId = nil
+        rebuildPanel(force: true)
+    }
+
+    func closeOptions() {
+        page = .list
+        rebuildPanel(force: true)
+    }
+
+    /// Saves the change and applies it: the page, the rows and the status item.
+    func applyOptions(_ changes: [String: Any]) {
+        PanelOptions.save(changes)
+        opts = PanelOptions.load()
+        assignEmoji()
+        paintItem()
+        rebuildPanel(force: true)
+    }
+
+    /// The options page, in three grouped boxes: "Menu bar" (the icon, one line), "Emoji" (a switch and a row per family
+    /// with its pictures) and "Panel" (three checkboxes).
+    func buildOptions(opaque: Bool) -> (NSView, String) {
+        let WIDTH: CGFloat = 380, PAD: CGFloat = 14
+        let inner = WIDTH - 2 * PAD
+        let panel = PanelView(solid: opaque)
+        signatureInProgress = "OL\(L.code)\(PanelStyle.mono ? "m" : "")|\(opts.emojiFamily)|\(opts.bubble)|\(opts.usage)|\(opts.context)|\(opts.icon)|\(showAllFamilies)|"
+        pendingRows = []
+        pendingCells = []
+        var y = PAD - 3     // a text button is 24 pt tall and its text sits 3 pt inside
+
+        let back = button(L.back, .text, Tone.needs.ink, size: 13) { [unowned self] in self.closeOptions() }
+        back.frame.origin = NSPoint(x: PAD - 3, y: y)
+        panel.addSubview(back)
+        y += back.frame.height + 2
+        let title = text(L.options, 16, .semibold, .labelColor, width: inner)
+        title.frame.origin = NSPoint(x: PAD, y: y)
+        panel.addSubview(title)
+        y += title.textSize.height + 16
+
+        func label(_ t: String) {
+            let r = text(t, 12, .semibold, .secondaryLabelColor, width: inner - 8)
+            r.frame.origin = NSPoint(x: PAD + 4, y: y)
+            panel.addSubview(r)
+            y += r.textSize.height + 6
+        }
+
+        let INSIDE: CGFloat = 8              // margin inside a grouped box
+        let boxWidth = inner
+        let rowWidth = inner - 2 * INSIDE
+        let BETWEEN: CGFloat = 17            // space between sections
+
+        /// An empty grouped box at the current position (behind whatever is put over it); the height is set afterwards.
+        func newBox() -> GroupBox {
+            let b = GroupBox(frame: NSRect(x: PAD, y: y, width: boxWidth, height: 10))
+            panel.addSubview(b)
+            return b
+        }
+
+        // 1. Menu bar: the icons in one line of 28 pt buttons
+        label(L.sectionMenuBar)
+        let box1 = newBox()
+        let current = resolvedBarIcon(opts.icon)
+        var buttons: [NSView] = []
+        for (symbol, name) in offeredBarIcons(current: current, L) {
+            guard let img = barImage(symbol, label: name) else { continue }
+            signatureInProgress += "<i:\(symbol)>"
+            buttons.append(BarIconButton(name: name, symbol: img, chosen: symbol == current, side: 28) { [unowned self] in
+                self.applyOptions(["icon": symbol])
+            })
+        }
+        let box1Top = y
+        y += 8
+        let gap: CGFloat = buttons.count > 1
+            ? min(8, max(5, floor((rowWidth - CGFloat(buttons.count) * 28) / CGFloat(buttons.count - 1)))) : 5
+        y += flow(buttons, in: panel, x0: PAD + INSIDE, y0: y, width: rowWidth, gapX: gap, gapY: 5) - 5
+        y += 8
+        box1.frame.size.height = y - box1Top
+        y += BETWEEN
+
+        // 2. Emoji: a general switch and, if it is on, a row per family with its pictures
+        label(L.sectionEmoji)
+        let box2 = newBox()
+        let box2Top = y
+        let on = opts.emojiFamily != emojiOff
+        signatureInProgress += "<emoji:\(on)>"
+        let toggle = OptionRow(L.emojiForEach, on: on, width: boxWidth, height: 40, inset: 12, asSwitch: true) { [unowned self] in
+            if on {
+                self.applyOptions(["emoji_theme": emojiOff])
+            } else {
+                let first = emojiFamilies.contains { $0.family == defaultEmojiFamily } ? defaultEmojiFamily : (emojiFamilies.first?.family ?? emojiOff)
+                self.applyOptions(["emoji_theme": first])
+            }
+        }
+        toggle.frame.origin = NSPoint(x: PAD, y: y)
+        panel.addSubview(toggle)
+        y += 40
+        if on {
+            let rule = Separator(frame: NSRect(x: PAD + 12, y: y, width: boxWidth - 24, height: 1))
+            rule.alpha = 0.10
+            panel.addSubview(rule)
+            y += 1 + INSIDE
+            // The first three families (and the chosen one, wherever it is) are seen; the rest, with "Show N more"
+            let visible = showAllFamilies ? emojiFamilies
+                : emojiFamilies.enumerated().filter { $0.offset < 3 || $0.element.family == opts.emojiFamily }.map { $0.element }
+            for (family, files) in visible {
+                let pictures = files.compactMap { emojiImage(family + "/" + $0) }
+                signatureInProgress += "<\(family)>"
+                let row = FamilyRow(name: L.family(family), pictures: pictures, chosen: opts.emojiFamily == family, width: rowWidth) {
+                    [unowned self] in self.applyOptions(["emoji_theme": family])
+                }
+                row.frame.origin = NSPoint(x: PAD + INSIDE, y: y)
+                panel.addSubview(row)
+                y += FamilyRow.height + 6
+            }
+            if emojiFamilies.count > visible.count || showAllFamilies {
+                let hidden = emojiFamilies.count - visible.count
+                let moreText = showAllFamilies ? L.showLess : L.showMore(hidden)
+                signatureInProgress += "<more:\(moreText)>"
+                let more = MoreRow(moreText, expanded: showAllFamilies, width: rowWidth) { [unowned self] in
+                    self.showAllFamilies.toggle()
+                    self.rebuildPanel(force: true)
+                }
+                more.frame.origin = NSPoint(x: PAD + INSIDE, y: y)
+                panel.addSubview(more)
+                y += FamilyRow.height + 6
+            }
+            y += -6 + INSIDE
+        }
+        box2.frame.size.height = y - box2Top
+        y += 8
+        let note = text(L.emojiNote, 11.5, .regular, .secondaryLabelColor, width: inner - 8, lines: 0)
+        note.frame.origin = NSPoint(x: PAD + 4, y: y)
+        panel.addSubview(note)
+        y += note.textSize.height + BETWEEN
+
+        // 3. Panel: three checkboxes, with a thin rule between rows
+        label(L.sectionPanel)
+        let box3 = newBox()
+        let box3Top = y
+        let checks: [(String, String, Bool)] = [("bubble", L.optBubble, opts.bubble), ("usage", L.optUsage, opts.usage),
+                                                ("context", L.optContext, opts.context)]
+        for (k, (key, caption, isOn)) in checks.enumerated() {
+            signatureInProgress += "<\(key)>"
+            if k > 0 {
+                let rule = Separator(frame: NSRect(x: PAD + 12, y: y, width: boxWidth - 24, height: 1))
+                rule.alpha = 0.10
+                panel.addSubview(rule)
+                y += 1
+            }
+            let row = OptionRow(caption, on: isOn, width: boxWidth, height: 38, inset: 12) { [unowned self] in
+                self.applyOptions([key: !isOn])
+            }
+            row.frame.origin = NSPoint(x: PAD, y: y)
+            panel.addSubview(row)
+            y += row.frame.height
+        }
+        box3.frame.size.height = y - box3Top
+        y += PAD
+
+        panel.frame = NSRect(x: 0, y: 0, width: WIDTH, height: ceil(y))
+        return (panel, signatureInProgress)
+    }
+
+    /// Lights up the pressable picture under the mouse (the ones in the rows and in the picker).
+    func highlightCells(_ p: NSPoint) {
+        guard let w = container.window else { return }
+        let visible = w.convertToScreen(container.convert(container.bounds, to: nil))
+        for c in cells {
+            let inside = c.window === w && visible.contains(p) && w.convertToScreen(c.convert(c.bounds, to: nil)).contains(p)
+            if c.hovered != inside { c.hovered = inside }
+        }
+    }
 
     /// A box of the list: [picture] state word · name · info on the right · [pin]; open, a row of buttons below.
     func makeRow(_ s: Session, width: CGFloat, hasImages: Bool, hasPin: Bool) -> RowBox {
@@ -2043,7 +3042,8 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
         info.append(withContext(opts.context ? readContext(s.id) : nil, rest: L.age(s.since), size: 12,
                                 color: .secondaryLabelColor, digits: true))
-        signatureInProgress += "{\(s.id)|\(stateWord)|\(s.project)|\(info.string)|\(pinnedRow ? "P" : "")|\(open ? "O" : "")|\(tone)}"
+        let picking = open && pickingId == id && picture != nil
+        signatureInProgress += "{\(s.id)|\(stateWord)|\(s.project)|\(info.string)|\(pinnedRow ? "P" : "")|\(open ? "O" : "")\(picking ? "K" : "")|\(tone)|\(Emoji.keys[id] ?? "")\(Emoji.manual.contains(id) ? "M" : "")}"
 
         let box = RowBox(id: id, tone: tone, width: width, description: "\(s.project), \(stateWord), \(info.string)") { [unowned self] in
             self.hideBubble(byClick: true)
@@ -2052,9 +3052,13 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         var x = pad
         if hasImages {
             if let img = picture {
-                let pv = PictureView(img, side: 20)
-                pv.frame.origin = NSPoint(x: x, y: ((line - 20) / 2).rounded())
-                box.addSubview(pv)
+                // The picture is pressable (it opens the emoji picker): its area is 24 pt, with 2 pt of margin
+                let cell = EmojiCell(img, side: 20, ring: false, description: L.changeEmoji, tip: L.changeEmoji) { [unowned self] in
+                    self.openPicker(id)
+                }
+                cell.frame.origin = NSPoint(x: x - EmojiCell.margin, y: ((line - 24) / 2).rounded())
+                box.addSubview(cell)
+                pendingCells.append(cell)
             }
             x += 20 + gap
         }
@@ -2081,7 +3085,9 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         box.addSubview(name)
 
         var totalHeight = line
-        if open {
+        if picking {
+            totalHeight = buildPicker(box, id: id, width: width, pad: pad, y0: 33, ink: ink) + 9
+        } else if open {
             var buttons: [NSView]
             var gapX: CGFloat = 6   // with 8 the four buttons of "Finished" measured 334 pt and 332 fit
             if remindingId == id {
@@ -2153,6 +3159,7 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     func tickMouse() {
         guard popover.isShown, !captureFixed else { return }
+        highlightCells(NSEvent.mouseLocation)
         // With a mouse button down nothing is touched: a quick click on a box would lose its mouseUp if the panel
         // were rebuilt between the mouseDown and the mouseUp.
         if NSEvent.pressedMouseButtons != 0 { return }
@@ -2162,8 +3169,9 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         let overBubble = bubble?.frame.contains(p) ?? false
         var rebuild = false
 
-        // 1. The box that opens: 180 ms with the mouse over it; it closes on leaving (except with "Remind me in" open)
-        if remindingId == nil {
+        // 1. The box that opens: 180 ms with the mouse over it; it closes on leaving (except with "Remind me in" or the
+        // emoji picker open)
+        if remindingId == nil && pickingId == nil {
             if openRow != nil && under != openRow { openRow = nil; rebuild = true }
             if openRow == nil, let b = under {
                 if b != hoverId { hoverId = b; hoverSince = now }
@@ -2175,8 +3183,9 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
         if rebuild { rebuildPanel(force: false) }
 
-        // With the bubble turned off (or private mode, which keeps message text out) there is no bubble
-        if !opts.bubble || isPrivate {
+        // With the bubble turned off (or private mode, which keeps message text out), the emoji picker or the options
+        // page open, there is no bubble
+        if !opts.bubble || isPrivate || pickingId != nil || page == .options {
             if bubbleId != nil { hideBubble() }
             restId = nil
             return
@@ -2311,6 +3320,34 @@ final class MenuBar: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         candidateId = nil
         outsideSince = nil
         restId = nil
+    }
+
+    // MARK: Navigation test (CCNOTIFY_TEST_NAV=<id>)
+
+    /// Does what the clicks do, through the same functions: options page, a switch, a family, the icon, back to the list,
+    /// the emoji picker of a row and a choice in it; notes the result of each step in stderr and quits.
+    func navTest(_ id: String) {
+        func note(_ t: String) {
+            let o = PanelOptions.load()
+            fputs("\(t): page=\(page == .options ? "options" : "list") picking=\(pickingId ?? "-") emoji(\(id))=\(Emoji.keys[id] ?? "-")"
+                  + "\(Emoji.manual.contains(id) ? "*" : "") family=\(o.emojiFamily) icon=\(o.icon) bubble=\(o.bubble) rows=\(rows.count)"
+                  + " height=\(Int(container.frame.height))\n", stderr)
+        }
+        guard popover.isShown else { fputs("the panel is not open\n", stderr); exit(2) }
+        note("1. list")
+        openOptions(); note("2. gear")
+        applyOptions(["bubble": false]); note("3. bubble off")
+        applyOptions(["emoji_theme": "music"]); note("4. family music")
+        showAllFamilies = true; rebuildPanel(force: true); note("5. all families")
+        applyOptions(["icon": "bolt.fill"]); note("6. icon")
+        applyOptions(["emoji_theme": emojiOff]); note("7. emoji off")
+        applyOptions(["emoji_theme": "animals"]); note("8. family animals")
+        closeOptions(); note("9. back")
+        openPicker(id); note("10. picker")
+        pickEmoji(id, "fruits/banana.png"); note("11. picked banana")
+        openPicker(id); pickEmoji(id, nil); note("12. automatic")
+        applyOptions(["bubble": true, "icon": defaultBarIcon, "emoji_theme": defaultEmojiFamily]); note("13. defaults")
+        exit(0)
     }
 
     // MARK: Mouse test (CCNOTIFY_TEST_MOUSE=<id>)

@@ -40,9 +40,9 @@ OUT="$(cd "$OUT" && pwd)"
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/ccnotify-build.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
 
-# build_app <App name> <executable> <source dir> <bundle id>
+# build_app <App name> <executable> <source dir> <bundle id> [<folder copied to Contents/Resources/emoji>]
 build_app() {
-  local name="$1" exe="$2" src="$3" bundle_id="$4"
+  local name="$1" exe="$2" src="$3" bundle_id="$4" extra_resources="${5:-}"
   local app="$OUT/$name.app"
   local arch
   local slices=()
@@ -59,6 +59,12 @@ build_app() {
     cp "${slices[0]}" "$app/Contents/MacOS/$exe"
   fi
   chmod 755 "$app/Contents/MacOS/$exe"
+
+  # Extra resources of this app (the menu bar app's per-session emoji), copied before signing
+  if [ -n "$extra_resources" ]; then
+    mkdir -p "$app/Contents/Resources/emoji"
+    cp -R "$ROOT/$extra_resources/." "$app/Contents/Resources/emoji/"
+  fi
 
   cat > "$app/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -84,4 +90,4 @@ PLIST
 }
 
 build_app "CCNotify" "ccnotify-popup" "src/popup" "io.github.ccnotify.popup"
-build_app "CCNotify Sessions" "ccnotify-sessions" "src/menubar" "io.github.ccnotify.sessions"
+build_app "CCNotify Sessions" "ccnotify-sessions" "src/menubar" "io.github.ccnotify.sessions" "assets/emoji"

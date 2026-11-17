@@ -79,9 +79,30 @@ All images are made from the real apps and scripts with fictional projects: popu
 
 ## Menu bar
 
-### Color and neutral styles
+The panel with its sessions (color and neutral styles look the same here), then one row open with the bubble that shows the
+whole last message, the "Remind me in" choices of a row, and its emoji picker.
 
-<img src="img/menubar-light.png" width="420" alt="Menu bar with its menu open, light"> <img src="img/menubar-dark.png" width="420" alt="Menu bar with its menu open, dark">
+### Panel
+
+<img src="img/menubar-light.png" width="420" alt="Menu bar panel, light"> <img src="img/menubar-dark.png" width="420" alt="Menu bar panel, dark">
+
+### Row open, with the bubble
+
+<img src="img/menubar-bubble-light.png" width="640" alt="Menu bar: a row open and the bubble with the whole message, light">
+
+<img src="img/menubar-bubble-dark.png" width="640" alt="Menu bar: a row open and the bubble with the whole message, dark">
+
+### Remind me in
+
+<img src="img/menubar-remind-light.png" width="420" alt="Menu bar: a row with its Remind me in choices, light"> <img src="img/menubar-remind-dark.png" width="420" alt="Menu bar: a row with its Remind me in choices, dark">
+
+### Emoji picker
+
+<img src="img/menubar-picker-light.png" width="420" alt="Menu bar: the emoji picker of a row, light"> <img src="img/menubar-picker-dark.png" width="420" alt="Menu bar: the emoji picker of a row, dark">
+
+### Options
+
+<img src="img/menubar-options-light.png" width="420" alt="Menu bar options page, light"> <img src="img/menubar-options-dark.png" width="420" alt="Menu bar options page, dark">
 
 ### Mono style
 

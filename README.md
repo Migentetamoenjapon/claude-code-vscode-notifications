@@ -45,7 +45,7 @@ Wondering why VS Code and not the Claude desktop app? See [Why VS Code](#why-vs-
 | 2 | **Styles** | `color` (one hue per kind, the default), `neutral` or `mono` (grayscale). |
 | 3 | **Long messages and stacking** | Long messages scroll; older popups shrink to two lines. |
 | 4 | **Jump to the terminal** | Click → the right VS Code window and the exact integrated terminal. |
-| 5 | **Menu bar** | Every session at a glance: needs you · wrote to you · thinking. |
+| 5 | **Menu bar** | Every session in one panel, most relevant first: hover for actions and the whole message, pin, remind me later, limits, optional emoji per session. |
 | 6 | **Sounds** | A different sound per kind of message, with quiet hours. |
 | 7 | **Status line** | One quiet line at the bottom of Claude Code: model, context, session cost, limits. |
 | | **Install / uninstall** | One script each; keeps your existing hooks and backs up your settings. |
@@ -121,29 +121,40 @@ just brought to the front.
 
 ## 5. Menu bar
 
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/menubar-dark.png"><img src="docs/img/menubar-light.png" width="434" alt="Menu bar icon with a count and its open menu: sessions grouped into Need you, Wrote to you, Thinking and Waiting for you"></picture></p>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/menubar-dark.png"><img src="docs/img/menubar-light.png" width="434" alt="The menu bar icon with a count and its open panel: one soft-colored row per session, with emoji, context use and the account limits"></picture></p>
 
-Two speech bubbles in the menu bar show the most urgent state across all your sessions. The number next to them counts
-what is waiting for you: sessions that need you plus messages you haven't looked at.
+The menu bar icon (two speech bubbles by default) counts what is waiting for you: sessions that need you plus finished
+ones you haven't looked at. No number means nothing is pending. Click it for one list with a box per open session,
+**most relevant first**: pinned · needs you · finished, unread · reminder pending · working · read.
 
-| Icon | Meaning |
-|---|---|
-| Filled, orange, with a number | A session **needs you** (permission, question, agent). |
-| Filled, green, with a number | A session **wrote to you** and you haven't looked yet. |
-| Outline, gray | Sessions are **thinking**. |
-| Outline, no color | Nothing pending. |
-
-Open it to see every session, grouped: **Need you · Wrote to you · Thinking · Waiting for you**.
-
-- Each row shows the project, the state, how long ago (and how many agents are still running), and one line with
-  what Claude said or what you asked.
+- Each row shows the state, the project and, on the right, `2 agents · ctx 62 % · 3 min`: agents still running, how
+  full the context is, and how long it has been in this state.
 - Click a row to [jump to that session's terminal](#4-jump-to-the-exact-terminal).
-- **Mark all as seen** clears the unread ones. A session leaves the list when you close it.
-- It starts by itself when you log in.
+- Rest the mouse on a row and it opens: **Go to chat** · **Remind me** (in 2, 5 or 15 min; the popup comes back when it
+  is due) · **Mark as read** · **Pin** (keeps it on top).
+- Keep resting and a bubble with the whole last message appears beside the panel (not with `"popup": { "private": true }`).
 
-In `mono` style nothing is colored: the state is shown by the shape of the icon and of each row's mark.
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/menubar-bubble-dark.png"><img src="docs/img/menubar-bubble-light.png" width="640" alt="A row opened with its buttons and, beside the panel, the bubble with Claude's whole last message"></picture></p>
 
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/menubar-mono-dark.png"><img src="docs/img/menubar-mono-light.png" width="434" alt="The same menu in mono style: grayscale, with a different mark for each state"></picture></p>
+- **Limits** at the bottom: the 5-hour and weekly usage, with a bar and when each resets. Together with the `ctx` of
+  each row it comes from the [status line](#7-status-line); without it you get neither.
+- **Mark all as read** clears the unread ones. A session leaves the list when you close it. The app starts by itself
+  when you log in.
+
+**Options.** The gear next to Quit opens a page for what the panel shows and how it looks: the **icon** of the menu bar
+item, **emoji** for each session, and whether to show the message bubble, the usage limits and the context of each
+session. Your choices are saved in `state/menubar/options.json` (the app's own file; `config.json` is never touched).
+
+**An emoji for each session.** Every open session gets its own small picture (on by default; the switch is on the options page), from a family you
+choose (nature, bugs, music, cozy, adventure, animals, fruits, gems & objects, colors) and different from the other open ones,
+so you tell your sessions apart at a glance. Click the emoji in a row to pick another one yourself, or go back to
+*Automatic*. The pictures are [Fluent Emoji](https://github.com/microsoft/fluentui-emoji) by Microsoft (MIT).
+
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/menubar-options-dark.png"><img src="docs/img/menubar-options-light.png" width="300" alt="The options page: icon of the menu bar, emoji families and the panel checkboxes"></picture> <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/menubar-picker-dark.png"><img src="docs/img/menubar-picker-light.png" width="300" alt="The emoji picker of a row, with every family"></picture></p>
+
+In `mono` style nothing is colored (the emoji turn gray too).
+
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/menubar-mono-dark.png"><img src="docs/img/menubar-mono-light.png" width="434" alt="The same panel in mono style: grayscale, with the emoji in gray"></picture></p>
 
 ## 6. Sounds
 
@@ -297,4 +308,4 @@ Issues and pull requests welcome, small ones included. Tests: `python3 -m unitte
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). The per-session emoji in `assets/emoji/` are [Fluent Emoji](https://github.com/microsoft/fluentui-emoji) by Microsoft (Flat style, MIT): see [assets/emoji/LICENSE](assets/emoji/LICENSE).
