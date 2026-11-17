@@ -11,6 +11,9 @@ session, and a menu bar icon tracks all your sessions. Local only, built on Clau
 
 > Unofficial community project. Not affiliated with or endorsed by Anthropic. "Claude" is a trademark of Anthropic.
 
+Free to use, change and share however you like (MIT). I built this while learning, so any feedback is welcome:
+ideas, bug reports, or "this could be simpler" — just [open an issue](../../issues).
+
 ## Start here
 
 | If you… | Go to |
@@ -289,7 +292,7 @@ decides whether to notify; two native Swift apps draw the popup and the menu bar
 
 ## Contributing
 
-Issues and pull requests welcome. Tests: `python3 -m unittest discover -s tests`. Screenshots:
+Issues and pull requests welcome, small ones included. Tests: `python3 -m unittest discover -s tests`. Screenshots:
 `tests/render/render_samples.sh`. Keep it dependency-free and local-only.
 
 ## License

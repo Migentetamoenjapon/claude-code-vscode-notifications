@@ -11,6 +11,9 @@ VS Code** de esa sesión, y un ícono en la barra de menú sigue todas tus sesio
 
 > Proyecto de la comunidad, no oficial. No está afiliado a Anthropic ni cuenta con su aval. "Claude" es una marca de Anthropic.
 
+Úsalo, cámbialo y compártelo como quieras (licencia MIT). Lo hice mientras aprendía, así que cualquier comentario es
+bienvenido: ideas, errores o «esto podría ser más simple»; solo [abre un issue](../../issues).
+
 ## Empieza aquí
 
 | Si tú… | Ve a |
@@ -290,7 +293,7 @@ que decide si avisar; dos apps nativas en Swift dibujan el aviso y la barra de m
 
 ## Colaborar
 
-Los issues y pull requests son bienvenidos. Pruebas: `python3 -m unittest discover -s tests`. Capturas:
+Los issues y pull requests son bienvenidos, también los pequeños. Pruebas: `python3 -m unittest discover -s tests`. Capturas:
 `tests/render/render_samples.sh`. La idea es que siga sin dependencias y todo local.
 
 ## Licencia
